@@ -94,29 +94,39 @@ gwr_leave_one_cntr <- function(cntr_code){
                         dMat=DM,kernel='exponential')
    names(gwr.res)
    names(gwr.res$SDF)
-   
    coef_l <- lapply(seq_along(param), function(param_i) raster(gwr.res$SDF[as.character(param[param_i])]))
    coef_stack <- Reduce(stack, coef_l)
    coef_stack <- stack(raster(gwr.res$SDF["Intercept"]), coef_stack)
-   coef_df <- lapply(seq_along(sp_test), function(loc_i) extract(coef_stack, sp_test[loc_i,]))
-   coef_df <- Reduce(rbind, coef_df)
    
-   predictor_test <- cbind(Intercept=1, test %>% dplyr::select(colnames(coef_df)[-1]))
-   gwr_test_pred <- (predictor_test * coef_df) %>% apply(., 1, sum)
-   gwr_test_df <- cbind(data.frame(gwr=gwr_test_pred), test)
+   gen_df_gwr <- function(param, coef_stack, sp_p, df_p){
+      
+      coef_df <- lapply(seq_along(sp_p), function(loc_i) extract(coef_stack, sp_p[loc_i,]))
+      coef_df <- Reduce(rbind, coef_df)
+      
+      predictor_test <- cbind(Intercept=1, df_p %>% dplyr::select(colnames(coef_df)[-1]))
+      gwr_test_pred <- (predictor_test * coef_df) %>% apply(., 1, sum)
+      gwr_test_df <- cbind(data.frame(gwr=gwr_test_pred), df_p)
+      gwr_test_df
+   }
+   gwr_test_df <- gen_df_gwr(param, coef_stack, sp_test, test)
+   # gwr_train_df <- gen_df_gwr(param, coef_stack, sp_train, train)
+   gwr_train_df <- cbind(data.frame(gwr=(gwr.res$lm)$fitted.values %>% as.vector()), train)
+
    library(ggplot2)
    ggplot(gwr_test_df)+
       geom_point(aes(x=gwr, y=NO2_2010))  # The result of slr and gwr more or less is the same for NL
-   rmse <- sqrt(mean((gwr_test_pred-test$NO2_2010)^2))
+   rmse <- sqrt(mean((gwr_test_df$gwr-test$NO2_2010)^2))
    r2 <- summary(lm(NO2_2010~gwr, gwr_test_df))$adj.r.squared
    r2_df <- rbind(data.frame(cntr=cntr_code, r2=r2, rmse=rmse, n=nrow(test)))
-   list(r2_df, gwr_test_df[, (1:9)])
+   list(r2_df, gwr_test_df[, (1:9)], gwr_train_df[, (1:9)])
 }
 gwr_loao_result <- lapply(unique(EU_data$country_is), gwr_leave_one_cntr)
 gwr_r2_df <- map(gwr_loao_result, 1)
 gwr_test_df <- map(gwr_loao_result, 2)
+gwr_train_df <- map(gwr_loao_result, 3)
 gwr_r2_df2 <- Reduce(rbind, gwr_r2_df)
 gwr_test_df <- Reduce(rbind, gwr_test_df)
+gwr_train_df <- Reduce(rbind, gwr_train_df)
 # r2_df <- rbind(data.frame(cntr="all", r2=as.numeric(read.csv("data/SLR_summary_model.csv", sep='\t',dec = "," )[nrow(read.csv("data/SLR_summary_model.csv", sep='\t',dec = "," )),]$increR2), n=nrow(EU_data)), 
 #                r2_df2)
 code_tbl <- read.table('../model_test/data/rawData/countryCode.txt') %>% rename(cntr=V1, cntr_name=V2)
