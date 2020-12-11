@@ -45,3 +45,5 @@ r2_df <- lapply(unique(EU_data$country_is), leave_one_cntr)
 r2_df2 <- Reduce(rbind, r2_df)
 r2_df <- rbind(data.frame(cntr="all", r2=as.numeric(read.csv("data/SLR_summary_model.csv", sep='\t',dec = "," )[nrow(read.csv("data/SLR_summary_model.csv", sep='\t',dec = "," )),]$increR2), n=nrow(EU_data)), 
                r2_df2)
+code_tbl <- read.table('../model_test/data/rawData/countryCode.txt') %>% rename(cntr=V1, cntr_name=V2)
+r2_df2 <- inner_join(r2_df2, code_tbl, by="cntr")
