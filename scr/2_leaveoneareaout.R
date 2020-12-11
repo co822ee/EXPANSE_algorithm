@@ -1,4 +1,8 @@
 library(dplyr)
+library(sp)
+library(GWmodel)
+library(raster)
+
 EU_data <- read.csv('data/NO2_2010.csv') %>% na.omit()
 pred_c <- c(c('alt10_enh','Xcoord', 'Ycoord', 'XY'),
             'clc10',
@@ -25,7 +29,7 @@ if(!dir.exists("data/workingData")) dir.create("data/workingData")
 source("../model_test/R/fun_slr.R")
 r2_df <- data.frame(cntr="all", r2=as.numeric(slr[nrow(slr),]$increR2), n=nrow(EU_data))
 cntr_code <- "NL"
-leave_one_cntr <- function(cntr_code){
+slr_leave_one_cntr <- function(cntr_code){
    train <- EU_data %>% filter(country_is != cntr_code)
    test <- EU_data %>% filter(country_is == cntr_code)
    slr_result <- slr(train$NO2_2010, train %>% dplyr::select(matches(pred_c)), 
@@ -39,11 +43,83 @@ leave_one_cntr <- function(cntr_code){
    rmse <- sqrt(mean((slr_test_pred-test$NO2_2010)^2))
    r2 <- summary(lm(NO2_2010~slr, slr_test_df))$adj.r.squared
    r2_df <- rbind(data.frame(cntr=cntr_code, r2=r2, rmse=rmse, n=nrow(test)))
-   r2_df
+   list(r2_df, slr_test_df[, (1:9)])
 }
-r2_df <- lapply(unique(EU_data$country_is), leave_one_cntr)
-r2_df2 <- Reduce(rbind, r2_df)
-r2_df <- rbind(data.frame(cntr="all", r2=as.numeric(read.csv("data/SLR_summary_model.csv", sep='\t',dec = "," )[nrow(read.csv("data/SLR_summary_model.csv", sep='\t',dec = "," )),]$increR2), n=nrow(EU_data)), 
-               r2_df2)
+slr_loao_result <- lapply(unique(EU_data$country_is), slr_leave_one_cntr)
+library(purrr)
+slr_r2_df <- map(slr_loao_result, 1)
+slr_test_df <- map(slr_loao_result, 2)
+slr_r2_df2 <- Reduce(rbind, slr_r2_df)
+slr_test_df <- Reduce(rbind, slr_test_df)
+# slr_r2_df <- rbind(data.frame(cntr="all", r2=as.numeric(read.csv("data/SLR_summary_model.csv", sep='\t',dec = "," )[nrow(read.csv("data/SLR_summary_model.csv", sep='\t',dec = "," )),]$increR2), n=nrow(EU_data)), 
+#                r2_df2)
 code_tbl <- read.table('../model_test/data/rawData/countryCode.txt') %>% rename(cntr=V1, cntr_name=V2)
-r2_df2 <- inner_join(r2_df2, code_tbl, by="cntr")
+slr_r2_df2 <- inner_join(slr_r2_df2, code_tbl, by="cntr")
+
+#----GWR-----
+local_crs <- CRS("+init=EPSG:3035")
+
+xmin <- EU_data_sp@bbox[1, 1]
+xmax <- EU_data_sp@bbox[1, 2]
+ymin <- EU_data_sp@bbox[2, 1]
+ymax <- EU_data_sp@bbox[2, 2]
+cellsize <- 200000
+grd2 <- SpatialGrid(GridTopology(c(xmin,ymin),
+                                 c(cellsize,cellsize),
+                                 c(floor((xmax-xmin)/cellsize)+2,floor((ymax-ymin)/cellsize)+2)))
+
+
+# basic GWR analysis
+gwr_leave_one_cntr <- function(cntr_code){
+   train <- EU_data %>% filter(country_is != cntr_code)
+   test <- EU_data %>% filter(country_is == cntr_code)
+   EU_data_sp <- sp::SpatialPointsDataFrame(data = EU_data,
+                                            coords = cbind(EU_data$Xcoord, EU_data$Ycoord),
+                                            proj4string = local_crs)
+   sp_train <- sp::SpatialPointsDataFrame(data = train,
+                                          coords = cbind(train$Xcoord, train$Ycoord),
+                                          proj4string = local_crs)
+   sp_test <- sp::SpatialPointsDataFrame(data = test,
+                                         coords = cbind(test$Xcoord, test$Ycoord),
+                                         proj4string = local_crs)
+   DM <- gw.dist(dp.locat=coordinates(sp_train),
+                 rp.locat=coordinates(grd2))
+   slr <- read.csv(paste0("data/workingData/SLR_summary_model_", cntr_code, ".csv"))
+   param <- slr$variables[-1]
+   eq <- as.formula(paste0('NO2_2010~',  paste(param, collapse = "+")))
+   summary(lm(eq, data=train))
+   gwr.res <- gwr.basic(eq,
+                        data=sp_train, 
+                        regression.points=grd2, bw=50000000, 
+                        dMat=DM,kernel='exponential')
+   names(gwr.res)
+   names(gwr.res$SDF)
+   
+   coef_l <- lapply(seq_along(param), function(param_i) raster(gwr.res$SDF[as.character(param[param_i])]))
+   coef_stack <- Reduce(stack, coef_l)
+   coef_stack <- stack(raster(gwr.res$SDF["Intercept"]), coef_stack)
+   coef_df <- lapply(seq_along(sp_test), function(loc_i) extract(coef_stack, sp_test[loc_i,]))
+   coef_df <- Reduce(rbind, coef_df)
+   
+   predictor_test <- cbind(Intercept=1, test %>% dplyr::select(colnames(coef_df)[-1]))
+   gwr_test_pred <- (predictor_test * coef_df) %>% apply(., 1, sum)
+   gwr_test_df <- cbind(data.frame(gwr=gwr_test_pred), test)
+   library(ggplot2)
+   ggplot(gwr_test_df)+
+      geom_point(aes(x=gwr, y=NO2_2010))  # The result of slr and gwr more or less is the same for NL
+   rmse <- sqrt(mean((gwr_test_pred-test$NO2_2010)^2))
+   r2 <- summary(lm(NO2_2010~gwr, gwr_test_df))$adj.r.squared
+   r2_df <- rbind(data.frame(cntr=cntr_code, r2=r2, rmse=rmse, n=nrow(test)))
+   list(r2_df, gwr_test_df[, (1:9)])
+}
+gwr_loao_result <- lapply(unique(EU_data$country_is), gwr_leave_one_cntr)
+gwr_r2_df <- map(gwr_loao_result, 1)
+gwr_test_df <- map(gwr_loao_result, 2)
+gwr_r2_df2 <- Reduce(rbind, gwr_r2_df)
+gwr_test_df <- Reduce(rbind, gwr_test_df)
+# r2_df <- rbind(data.frame(cntr="all", r2=as.numeric(read.csv("data/SLR_summary_model.csv", sep='\t',dec = "," )[nrow(read.csv("data/SLR_summary_model.csv", sep='\t',dec = "," )),]$increR2), n=nrow(EU_data)), 
+#                r2_df2)
+code_tbl <- read.table('../model_test/data/rawData/countryCode.txt') %>% rename(cntr=V1, cntr_name=V2)
+gwr_r2_df2 <- inner_join(gwr_r2_df2, code_tbl, by="cntr")
+View(gwr_r2_df2)
+View(slr_r2_df2)
