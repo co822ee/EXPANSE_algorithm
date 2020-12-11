@@ -123,3 +123,5 @@ code_tbl <- read.table('../model_test/data/rawData/countryCode.txt') %>% rename(
 gwr_r2_df2 <- inner_join(gwr_r2_df2, code_tbl, by="cntr")
 View(gwr_r2_df2)
 View(slr_r2_df2)
+
+# The result of gwr and slr is similar...
