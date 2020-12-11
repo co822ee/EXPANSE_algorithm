@@ -1,0 +1,11 @@
+# exclude compiled binaries and external models
+/bin
+
+# exclude data from source control by default
+/data
+/data/temp
+/data/processed
+/data/raw
+.Rproj.user
+/results
+/scr/archive
