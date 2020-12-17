@@ -6,6 +6,8 @@ library(tmaptools)
 library(dplyr)
 library(GWmodel)
 source('scr/fun_usefulFunctions.R')
+library(sf)
+eu_bnd <- st_read("../airbase/project/data/raw/expanse_shp/eu_expanse2.shp")
 
 EU_data <- read.csv('data/NO2_2010.csv') %>% na.omit()
 summary(EU_data)
@@ -77,17 +79,18 @@ panel.lm <- function(x,y,...) {
 coplot(NO2_2010~MAJRDS_EU_10p|Xcoord*Ycoord,data=data.frame(sp_train),
        panel=panel.lm, overlap=0.5)
 
-xmin <- sp_train@bbox[1, 1]
-ymin <- sp_train@bbox[2, 1]
-xmax <- sp_train@bbox[1, 2]
-ymax <- sp_train@bbox[2, 2]
+xmin <- extent(eu_bnd)[1]
+ymin <- extent(eu_bnd)[3]
+xmax <- extent(eu_bnd)[2]
+ymax <- extent(eu_bnd)[4]
 cellsize <- 200000
 grd2 <- SpatialGrid(GridTopology(c(xmin,ymin),
                                  c(cellsize,cellsize),
                                  c(floor((xmax-xmin)/cellsize)+2,floor((ymax-ymin)/cellsize)+2)))
 
 plot(grd2)
-plot(sp_train, pch=16, col='firebrick',add=TRUE)
+plot(eu_bnd[1], pch=16, col='firebrick',add=TRUE)
+
 
 DM <- gw.dist(dp.locat=coordinates(sp_train),
               rp.locat=coordinates(grd2))
@@ -109,9 +112,10 @@ gwr.res$lm
 #(the Spatial* object with the GWR results is in gwr.res$SDF - here the object is a SpatialPixelsDataFrame)
 image(gwr.res$SDF,'no2_10MACC')
 # image(gwr.res$SDF,'Intercept')
-contour(gwr.res$SDF,'no2_10MACC',lwd=1,add=TRUE)
-# plot(londonborough,add=TRUE)
-plot(sp_train,add=TRUE,pch=16,col='blueviolet', alpha=0.05)
+plot(eu_bnd[1],add=TRUE,pch=16,col='transparent', alpha=0.05)
+contour(gwr.res$SDF,'no2_10MACC',lwd=1,add=TRUE, col='dark grey')
+
+# plot(sp_train,add=TRUE,pch=16,col='blueviolet', alpha=0.05)
 
 image(gwr.res$SDF,'Intercept')
 contour(gwr.res$SDF,'Intercept',lwd=1,add=TRUE)
