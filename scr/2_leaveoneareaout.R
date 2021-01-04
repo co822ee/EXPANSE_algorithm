@@ -98,7 +98,7 @@ gwr_leave_one_cntr <- function(cntr_code){
    coef_stack <- Reduce(stack, coef_l)
    coef_stack <- stack(raster(gwr.res$SDF["Intercept"]), coef_stack)
    
-   gen_df_gwr <- function(param, coef_stack, sp_p, df_p){
+   gen_df_gwr <- function(coef_stack, sp_p, df_p){
       
       coef_df <- lapply(seq_along(sp_p), function(loc_i) extract(coef_stack, sp_p[loc_i,]))
       coef_df <- Reduce(rbind, coef_df)
@@ -108,8 +108,8 @@ gwr_leave_one_cntr <- function(cntr_code){
       gwr_test_df <- cbind(data.frame(gwr=gwr_test_pred), df_p)
       gwr_test_df
    }
-   gwr_test_df <- gen_df_gwr(param, coef_stack, sp_test, test)
-   # gwr_train_df <- gen_df_gwr(param, coef_stack, sp_train, train)
+   gwr_test_df <- gen_df_gwr(coef_stack, sp_test, test)
+   # gwr_train_df <- gen_df_gwr(coef_stack, sp_train, train)
    gwr_train_df <- cbind(data.frame(gwr=(gwr.res$lm)$fitted.values %>% as.vector()), train)
 
    library(ggplot2)
@@ -133,5 +133,37 @@ code_tbl <- read.table('../model_test/data/rawData/countryCode.txt') %>% rename(
 gwr_r2_df2 <- inner_join(gwr_r2_df2, code_tbl, by="cntr")
 View(gwr_r2_df2)
 View(slr_r2_df2)
-
 # The result of gwr and slr is similar...
+gwr_uncertain <- gwr_train_df %>% group_by(Station) %>% summarise(gwr_sd=sd(gwr), 
+                                                                  gwr_mean=mean(gwr), 
+                                                                  type_of_st=unique(type_of_st),
+                                                                  x=unique(Xcoord),
+                                                                  y=unique(Ycoord))
+hist(gwr_uncertain$gwr_sd)
+gwr_uncertain <- inner_join(gwr_uncertain, data.frame(Station=EU_data$Station, region=as.factor(EU_data$REGION)), by="Station")
+
+ggplot(gwr_uncertain)+
+   geom_point(aes(gwr_mean, gwr_sd, col=type_of_st))
+ggplot(gwr_uncertain)+
+   geom_point(aes(gwr_mean, gwr_sd, col=region))
+library(sf)
+library(tmap)
+locations_sf = st_as_sf(gwr_uncertain, coords = c("x","y"))
+st_crs(locations_sf) <- crs("+init=epsg:3035")
+osm_unc = tm_shape(locations_sf) +
+   tm_dots( "gwr_sd", col = "gwr_sd", size = "gwr_sd", scale = 0.3,
+            title = "NO2 sd in predictions (LOAO)",
+            popup.vars = c("gwr_sd", "Station", "type_of_st")) +
+   tm_scale_bar(text.size=1.2, text.color='black', 
+                position = c('center','bottom'))
+osm_unc
+tmap_save(osm_unc, "result/NO2sd.html")
+osm_mean = tm_shape(locations_sf) +
+   tm_dots( "gwr_mean", col = "gwr_mean", size = "gwr_mean", scale = 0.3,
+            title = "NO2 mean in predictions (LOAO)",
+            popup.vars = c("gwr_mean", "Station", "type_of_st")) +
+   tm_scale_bar(text.size=1.2, text.color='black', 
+                position = c('center','bottom'))
+osm_mean
+tmap_save(osm_mean, "result/NO2mean.html")
+
