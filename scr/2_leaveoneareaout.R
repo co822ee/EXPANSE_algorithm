@@ -94,9 +94,8 @@ gwr_leave_one_cntr <- function(cntr_code){
                         dMat=DM,kernel='exponential')
    names(gwr.res)
    names(gwr.res$SDF)
-   coef_l <- lapply(seq_along(param), function(param_i) raster(gwr.res$SDF[as.character(param[param_i])]))
-   coef_stack <- Reduce(stack, coef_l)
-   coef_stack <- stack(raster(gwr.res$SDF["Intercept"]), coef_stack)
+
+   coef_stack <- stack(gwr.res$SDF)
    
    gen_df_gwr <- function(coef_stack, sp_p, df_p){
       
