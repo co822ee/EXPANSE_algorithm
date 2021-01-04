@@ -98,7 +98,7 @@ gwr_leave_one_cntr <- function(cntr_code){
    coef_stack <- stack(gwr.res$SDF)
    
    gen_df_gwr <- function(coef_stack, sp_p, df_p){
-      
+      # extract coefficient values for each point
       coef_df <- lapply(seq_along(sp_p), function(loc_i) extract(coef_stack, sp_p[loc_i,]))
       coef_df <- Reduce(rbind, coef_df)
       
