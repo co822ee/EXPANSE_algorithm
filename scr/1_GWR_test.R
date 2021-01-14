@@ -10,6 +10,12 @@ library(sf)
 eu_bnd <- st_read("../airbase/project/data/raw/expanse_shp/eu_expanse2.shp")
 
 EU_data <- read.csv('data/NO2_2010.csv') %>% na.omit()
+# truncate x and y
+EU_data <- EU_data %>% mutate(x = Xcoord-min(Xcoord)/(max(Xcoord)-min(Xcoord)),
+                        y = Ycoord-min(Ycoord)/(max(Ycoord)-min(Ycoord)))
+# transform altitude
+EU_data <- EU_data %>% mutate(alt_t = sqrt((alt10_enh-min(alt10_enh))/max(alt10_enh-min(alt10_enh))))
+
 summary(EU_data)
 pred <- list(c('alt10_enh','Xcoord', 'Ycoord', 'XY'),
              'clc10',
@@ -68,7 +74,12 @@ colours = c("dark blue", "blue", "red", "dark red")
 # EDA
 linmod <- lm(NO2_2010~MAJRDS_EU_10p,data=sp_train) # Store the regression model to use in a plot later
 summary(linmod)
-plot(NO2_2010~MAJRDS_EU_10p, data=sp_train,xlab='Proportion Professional/Managerial',ylab='Cost per Square Metre')
+plot(NO2_2010~MAJRDS_EU_10p, data=sp_train,xlab='Major roads (10p neighboring)',ylab='NO2 concentrations (ug/m3)')
+abline(linmod)
+
+linmod <- lm(NO2_2010~no2_10MACC,data=sp_train) # Store the regression model to use in a plot later
+summary(linmod)
+plot(NO2_2010~no2_10MACC, data=sp_train,xlab='no2_10MACC',ylab='NO2 concentrations (ug/m3)')
 abline(linmod)
 # Is this linear relationship the same everywhere in London area?
 panel.lm <- function(x,y,...) {
@@ -76,7 +87,7 @@ panel.lm <- function(x,y,...) {
    abline(lm(y~x))
 }
 #the data area divided into subsets on the basis of their locations
-coplot(NO2_2010~MAJRDS_EU_10p|Xcoord*Ycoord,data=data.frame(sp_train),
+coplot(NO2_2010~no2_10MACC|Xcoord*Ycoord,data=data.frame(sp_train),
        panel=panel.lm, overlap=0.5)
 
 xmin <- extent(eu_bnd)[1]
@@ -94,6 +105,49 @@ plot(eu_bnd[1], pch=16, col='firebrick',add=TRUE)
 
 DM <- gw.dist(dp.locat=coordinates(sp_train),
               rp.locat=coordinates(grd2))
+#------ (Test) whether using a single predictor in GWR shows significant spatial variation---------
+eq <- as.formula(NO2_2010~no2_10MACC+MAJRDS_EU_10p)
+gwr.res.t <- gwr.basic(eq,
+                     data=sp_train, 
+                     regression.points=grd2, bw=50000000, 
+                     dMat=DM,kernel='exponential')
+image(gwr.res.t$SDF,'no2_10MACC', main="no2_10MACC")
+# image(gwr.res.t$SDF,'Intercept')
+plot(eu_bnd[1],add=TRUE,pch=16,col='transparent',border='grey', alpha=0.05)
+contour(gwr.res.t$SDF,'no2_10MACC',lwd=2, labcex=1.5,add=TRUE)
+
+# Extract the pred coef values
+coef_stack <- stack(gwr.res.t$SDF)
+
+gen_df_gwr <- function(coef_stack, sp_p, df_p){
+   # extract coefficient values for each point
+   coef_df <- lapply(seq_along(sp_p), function(loc_i) extract(coef_stack, sp_p[loc_i,]))
+   coef_df <- Reduce(rbind, coef_df)
+   
+   predictor_test <- cbind(Intercept=1, df_p %>% dplyr::select(colnames(coef_df)[-1]))
+   gwr_test_pred <- (predictor_test * coef_df) %>% apply(., 1, sum)
+   gwr_test_df <- cbind(data.frame(gwr=gwr_test_pred), df_p)
+   gwr_test_df
+}
+gwr_test_df <- gen_df_gwr(coef_stack, sp_test, test_data)
+gwr_test_df <- gwr_test_df %>% mutate(lm=predict(lm(eq, 
+                                                    data=train_data), test_data))
+# gwr_train_df <- gen_df_gwr(param, coef_stack, sp_train, train)
+gwr_train_df <- cbind(data.frame(gwr=(gwr.res.t$lm)$fitted.values %>% as.vector()), train_data)
+library(ggplot2)
+ggplot(gwr_test_df)+
+   geom_point(aes(x=gwr, y=NO2_2010))+
+   geom_point(aes(x=lm, y=NO2_2010), col="red")
+ggplot(gwr_test_df)+
+   geom_point(aes(x=lm, y=gwr))
+rmse <- sqrt(mean((gwr_test_df$gwr-test_data$NO2_2010)^2))
+rmse.lm <- sqrt(mean((gwr_test_df$lm-test_data$NO2_2010)^2))
+# rmse <- sqrt(mean((gwr_train_df$gwr-train_data$NO2_2010)^2))
+r2 <- summary(lm(NO2_2010~gwr, gwr_test_df))$adj.r.squared
+# r2 <- summary(lm(NO2_2010~gwr, gwr_train_df))$adj.r.squared
+r2_df <- rbind(data.frame(r2=r2, rmse=rmse, n=nrow(test_data)))
+r2_df
+
 # basic GWR analysis
 slr <- read.csv("data/SLR_summary_model.csv", sep='\t',dec = "," )
 eq <- as.formula(paste0('NO2_2010~',  paste(slr$variables[-1], collapse = "+")))
@@ -104,30 +158,39 @@ gwr.res <- gwr.basic(eq,
                      dMat=DM,kernel='exponential')
 # bw can be chosen ‘automatically’ by cross-validation. 
 # kernel: the functional form of the kernel (the weighting applied in the window) - here it is Gaussian
+gwr.res$SDF
 names(gwr.res)
 names(gwr.res$SDF)
 summary(gwr.res)
 gwr.res$lm
 
 #(the Spatial* object with the GWR results is in gwr.res$SDF - here the object is a SpatialPixelsDataFrame)
-image(gwr.res$SDF,'no2_10MACC')
+image(gwr.res$SDF,'no2_10MACC', main="no2_10MACC")
 # image(gwr.res$SDF,'Intercept')
-plot(eu_bnd[1],add=TRUE,pch=16,col='transparent', alpha=0.05)
-contour(gwr.res$SDF,'no2_10MACC',lwd=1,add=TRUE, col='dark grey')
-
+plot(eu_bnd[1],add=TRUE,pch=16,col='transparent',border='grey', alpha=0.05)
+contour(gwr.res$SDF,'no2_10MACC',lwd=2, labcex=1.5,add=TRUE)
 # plot(sp_train,add=TRUE,pch=16,col='blueviolet', alpha=0.05)
 
-image(gwr.res$SDF,'Intercept')
-contour(gwr.res$SDF,'Intercept',lwd=1,add=TRUE)
-# plot(londonborough,add=TRUE)
-plot(sp_train,add=TRUE,pch=16,col='blueviolet', alpha=0.05)
+image(gwr.res$SDF,'ROADS_EU_20p', main="ROADS_EU_20p")
+plot(eu_bnd[1],add=TRUE,pch=16,col='transparent',border='grey', alpha=0.05)
+contour(gwr.res$SDF,'ROADS_EU_20p',lwd=2, labcex=1.5,add=TRUE)
+
+
+image(gwr.res$SDF,'Intercept', main='intercept')
+plot(eu_bnd[1],add=TRUE,pch=16,col='transparent',border='grey', alpha=0.05)
+contour(gwr.res$SDF,'Intercept',lwd=2, labcex=1.5,add=TRUE)
+# plot(sp_train,add=TRUE,pch=16,col='blueviolet', alpha=0.05)
 
 
 head(gwr.res$SDF['Intercept'])
 class(gwr.res$SDF['Intercept'])
 
+#the data area divided into subsets on the basis of their locations
+coplot(NO2_2010~no2_10MACC|Xcoord*Ycoord,data=data.frame(sp_train),
+       panel=panel.lm, overlap=0.5)
 
-
+coplot(NO2_2010~ROADS_EU_20p|Xcoord*Ycoord,data=data.frame(sp_train),
+       panel=panel.lm, overlap=0.5)
 # doubt how the predictionr are calculated
 # DM_tt <- gw.dist(dp.locat = coordinates(sp_train), 
 #                  rp.locat = coordinates(sp_test))
