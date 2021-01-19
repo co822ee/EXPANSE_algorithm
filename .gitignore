@@ -1,6 +1,6 @@
 # exclude compiled binaries and external models
 /bin
-
+/results
 # exclude data from source control by default
 /data
 /data/temp
