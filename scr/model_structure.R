@@ -42,10 +42,14 @@ sum(test_sub$year==2010)/nrow(test_sub)
 sum(train_sub$type_of_st=="Background")/nrow(train_sub)
 sum(test_sub$type_of_st=="Background")/nrow(test_sub)
 
-#f# SLR: define/preprocess predictors (direction of effect)
-
 
 #f# SLR: select predictors
+source("scr/fun_call_predictor.R")
+#f# SLR: define/preprocess predictors (direction of effect)
+source("scr/fun_slr_change_dir.R")
+change_dir(train_sub, neg_pred)
+change_dir(test_sub, neg_pred)
+
 #f# SLR: perform cross-validation
 #f# GWR: define/preprocess predictors (direction of effect)
 #f# GWR: read in SLR's selected predictors
