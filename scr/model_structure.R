@@ -34,12 +34,13 @@ subset_df_yrs <- function(obs_df, yr_target){
 }
 #o# multiple years
 no2_e_09_11 <- subset_df_yrs(no2_e_all, 2009:2011)
+data_all <- no2_e_09_11
 #f# subset cross-validation data (5-fold cross-validation)
 #f# stratified by station types, climate zones and/or years
-no2_e_09_11$index <- 1:nrow(no2_e_09_11)
+data_all$index <- 1:nrow(data_all)
 set.seed(123)  # good idea to set the random seed for reproducibility
-train_sub <- stratified(no2_e_09_11, c('type_of_st', 'year', 'climate_zone'), 0.8)
-test_sub <- no2_e_09_11[-train_sub$index, ]
+train_sub <- stratified(data_all, c('type_of_st', 'year', 'climate_zone'), 0.8)
+test_sub <- data_all[-train_sub$index, ]
 # Check whether the stratification works
 sum(train_sub$year==2010)/nrow(train_sub)
 sum(test_sub$year==2010)/nrow(test_sub)
@@ -76,7 +77,11 @@ gwr_model <- gwr(train_sub, test_sub, eu_bnd, 200000, csv_name, CRS("+init=EPSG:
 source("scr/fun_output_gwr_result.R")
 gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, CRS("+init=EPSG:3035"),
                             output_filename = csv_name)
+## RF: split data into train, validation, and test data
+set.seed(123)
+index <- partition()
 #f# RF: tune hyperparameter
+
 #f# RF: train the model
 #f# RF: perform cross-validation
 
