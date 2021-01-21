@@ -4,6 +4,7 @@ library(sf)
 library(car)  # for running slr
 library(caret)  #data partition
 library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
+library(splitTools)
 library(APMtools)
 library(GWmodel)  #gwr
 
@@ -79,10 +80,16 @@ gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, CRS("+init=EPSG:3035
                             output_filename = csv_name)
 ## RF: split data into train, validation, and test data
 set.seed(123)
-index <- partition()
+index <- partition(data_all$country_code, p=c(train=0.6, valid=0.2, test=0.2))
+train_df <- data_all[index$train, ]
+valid_df <- data_all[index$valid, ]
+test_df <- data_all[index$test, ]
 #f# RF: tune hyperparameter
 
+
 #f# RF: train the model
+
+
 #f# RF: perform cross-validation
 
 
