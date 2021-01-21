@@ -77,7 +77,8 @@ gwr_model <- gwr(train_sub, test_sub, eu_bnd, 200000, csv_name, CRS("+init=EPSG:
 source("scr/fun_output_gwr_result.R")
 gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, CRS("+init=EPSG:3035"),
                             output_filename = csv_name)
-error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', ''])
+error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr'])
+error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr'])
 ## RF: split data into train, validation, and test data
 set.seed(123)
 index <- partition(data_all$country_code, p=c(train=0.6, valid=0.2, test=0.2))

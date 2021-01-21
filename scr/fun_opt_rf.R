@@ -16,15 +16,15 @@ opt_rf <- function(df_train, df_test, y_varname, x_varname, csv_name,
 
    df_all <- rbind(df_train %>% mutate(df_type = 'train'), 
                    df_test %>% mutate(df_type = 'test'))
-   rf_result <- data.frame(pred = predict(rf_model, df_all) %>% predictions(),
+   rf_result <- data.frame(rf = predict(rf_model, df_all) %>% predictions(),
                            obs = df_all[, y_varname]) %>% 
-      mutate(res = obs - pred) %>% 
+      mutate(res = obs - rf) %>% 
       cbind(df_all %>% dplyr::select(-all_of(y_varname))) 
    rf_poll_train <- rf_result[rf_result$df_type=='train', ]
    rf_poll_test <- rf_result[rf_result$df_type=='test', ]
    
-   eval_train <- error_matrix(rf_poll_train$obs, rf_poll_train$pred)
-   eval_test <- error_matrix(rf_poll_test$obs, rf_poll_test$pred)
+   eval_train <- error_matrix(rf_poll_train$obs, rf_poll_train$rf)
+   eval_test <- error_matrix(rf_poll_test$obs, rf_poll_test$rf)
 
    write.csv(rf_result, 
              paste0('data/workingData/RF_result_all_', csv_name, '.csv'), 
