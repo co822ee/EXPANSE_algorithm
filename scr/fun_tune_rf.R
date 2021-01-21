@@ -16,7 +16,7 @@ tune_rf <- function(df_train, df_valid, y_varname, x_varname, csv_name,
       
       # add test RMSE
       pred_valid <- predict(model, df_valid) %>% predictions()
-      obs_valid <- df_valid[, y_varname]
+      obs_valid <- (df_valid[, y_varname] %>% as.data.frame())[,1]
       hyper_grid$valid_RMSE[i] <- (obs_valid-pred_valid)^2 %>%
          mean() %>% sqrt()
       hyper_grid$valid_R2[i] <- 1-mean((pred_valid-obs_valid)^2)/var(obs_valid)
