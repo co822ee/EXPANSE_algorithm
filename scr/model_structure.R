@@ -29,26 +29,25 @@ subset_df_yrs <- function(obs_df, yr_target){
 }
 #o# multiple years
 no2_e_09_11 <- subset_df_yrs(no2_e_all, 2009:2011)
-# #f# subset cross-validation data (5-fold cross-validation)
-# #f# stratified by station types, climate zones and/or years
-# no2_e_09_11$index <- 1:nrow(no2_e_09_11) 
-# set.seed(123)  # good idea to set the random seed for reproducibility
-# train_sub <- stratified(no2_e_09_11, c('type_of_st', 'year', 'climate_zone'), 0.8)
-# test_sub <- no2_e_09_11[-train_sub$index, ]
-# # Check whether the stratification works
-# sum(train_sub$year==2010)/nrow(train_sub)
-# sum(test_sub$year==2010)/nrow(test_sub)
-# 
-# sum(train_sub$type_of_st=="Background")/nrow(train_sub)
-# sum(test_sub$type_of_st=="Background")/nrow(test_sub)
+#f# subset cross-validation data (5-fold cross-validation)
+#f# stratified by station types, climate zones and/or years
+no2_e_09_11$index <- 1:nrow(no2_e_09_11)
+set.seed(123)  # good idea to set the random seed for reproducibility
+train_sub <- stratified(no2_e_09_11, c('type_of_st', 'year', 'climate_zone'), 0.8)
+test_sub <- no2_e_09_11[-train_sub$index, ]
+# Check whether the stratification works
+sum(train_sub$year==2010)/nrow(train_sub)
+sum(test_sub$year==2010)/nrow(test_sub)
 
+sum(train_sub$year==2010&train_sub$type_of_st=="Background"&train_sub$climate_zone==1)/nrow(train_sub)
+sum(test_sub$year==2010&test_sub$type_of_st=="Background"&test_sub$climate_zone==1)/nrow(test_sub)
 
 #f# SLR: select predictors
 source("scr/fun_call_predictor.R")
 #f# SLR: define/preprocess predictors (direction of effect)
-source("scr/fun_slr_change_dir.R")
-change_dir(train_sub, neg_pred)
-change_dir(test_sub, neg_pred)
+source("scr/fun_proc_in_data.R")
+proc_in_data(train_sub, neg_pred)
+proc_in_data(test_sub, neg_pred)
 
 #f# SLR: perform cross-validation
 #f# GWR: define/preprocess predictors (direction of effect)
