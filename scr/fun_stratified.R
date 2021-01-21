@@ -21,4 +21,6 @@ gen_train_test <- function(data_all, seed, n_fold){
    #!?! should I use EU_data %>% group_by(REGION) %>% sample_frac(0.6) %>% ungroup
    #    instead??? Because for some stations there are fewer years available.
    # to test whether stratification is successful
+   # TODO use splitTools library create_folds() to do stratified cross-validation
+   # after we group the different comibation of the strata targeted group (climate_zone, year, type_of_st)
 }
