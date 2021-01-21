@@ -87,10 +87,22 @@ train_df <- data_all[index$train, ]
 valid_df <- data_all[index$valid, ]
 test_df <- data_all[index$test, ]
 #f# RF: tune hyperparameter
-
+hyper_grid <- expand.grid(
+   mtry = seq(30, length(x_varname), by=10),
+   ntrees = seq(500,1500, by=200),
+   OOB_RMSE = 0,
+   OOB_R2 = 0,
+   valid_RMSE = 0,
+   valid_R2 = 0
+)
+source("scr/fun_tune_rf.R")
+hyper_grid <- tune_rf(train_df, valid_df,
+                      y_name='obs', 
+                      x_varname = names(df_train %>% dplyr::select(matches(pred_c))),
+                      csv_name, hyper_grid)
 
 #f# RF: train the model
-
+hyper_grid <- read.csv(paste0("data/workingData/rf_hyper_grid_", csv_name, '.csv'))
 
 #f# RF: perform cross-validation
 
