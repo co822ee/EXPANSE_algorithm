@@ -10,6 +10,7 @@ library(splitTools)
 library(APMtools)
 
 seed <- 123
+
 eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
 ## Read in data (elapse NO2 2010 with climate zones included)
 elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
@@ -18,24 +19,21 @@ elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_clim
 no2 <- read.csv("../airbase/EXPANSE_APM/data/processed/ab_v8_yr_no2.csv")
 # rename data
 elapse_no2 <- rename(elapse_no2, station_european_code=ï..Station)
-names(elapse_no2)
-names(no2)
 # reduce airbase data
 no2 <- no2 %>% rename(year=statistics_year, obs=statistic_value)
 ## subset stations that are included in the elapse (cause at this stage, we don't have the predictor maps...)
 no2_e <- no2 %>% filter(no2$station_european_code%in%unique(elapse_no2$station_european_code))
-no2_e 
 no2_e_all <- left_join(no2_e, elapse_no2, by="station_european_code")
 source("../airbase/EXPANSE_APM/src/fun_eda_spatial_distribution_annualobs_laea.R")
 annual_spatial_dist(poll_conc = no2_e_all, eu_bnd = eu_bnd, 
                     folder_subnote = 'elapse_ab')
 ## subset samples (for multiple years or each year)
-names(no2_e_all)
 subset_df_yrs <- function(obs_df, yr_target){
    no2_e_sub <- obs_df %>% filter(year%in%yr_target)
    no2_e_sub
 }
 #o# multiple years
+csv_name <- 'run1_train_09-11'
 no2_e_09_11 <- subset_df_yrs(no2_e_all, 2009:2011)
 data_all <- no2_e_09_11
 #f# subset cross-validation data (5-fold cross-validation)
@@ -60,7 +58,6 @@ test_sub <- proc_in_data(test_sub, neg_pred)
 
 #f# SLR: train SLR
 source("scr/fun_slr.R")
-csv_name <- 'run1_train'
 slr_result <- slr(train_sub$obs, train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame(), 
     cv_n = csv_name)
 slr_model <- slr_result[[3]]
@@ -80,12 +77,15 @@ gwr_model <- gwr(train_sub, test_sub, eu_bnd, 200000, csv_name, CRS("+init=EPSG:
 source("scr/fun_output_gwr_result.R")
 gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, CRS("+init=EPSG:3035"),
                             output_filename = csv_name)
+error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', ''])
 ## RF: split data into train, validation, and test data
 set.seed(123)
 index <- partition(data_all$country_code, p=c(train=0.6, valid=0.2, test=0.2))
-train_df <- data_all[index$train, ]
-valid_df <- data_all[index$valid, ]
-test_df <- data_all[index$test, ]
+# train_df <- data_all[index$train, ]
+# valid_df <- data_all[index$valid, ]
+# test_df <- data_all[index$test, ]
+train_df <- train_sub
+test_df <- test_sub
 #f# RF: tune hyperparameter
 hyper_grid <- expand.grid(
    mtry = seq(30, length(x_varname), by=10),
@@ -96,7 +96,7 @@ hyper_grid <- expand.grid(
    valid_R2 = 0
 )
 source("scr/fun_tune_rf.R")
-hyper_grid <- tune_rf(train_df, valid_df,
+hyper_grid <- tune_rf(train_df, test_df, #valid_df,
                       y_varname='obs', 
                       x_varname = names(df_train %>% dplyr::select(matches(pred_c))),
                       csv_name, hyper_grid)
