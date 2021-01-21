@@ -9,7 +9,7 @@ library(splitstackshape)   #stratified function in this library is better than c
 library(splitTools)
 library(APMtools)
 
-
+seed <- 123
 eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
 ## Read in data (elapse NO2 2010 with climate zones included)
 elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
@@ -41,7 +41,7 @@ data_all <- no2_e_09_11
 #f# subset cross-validation data (5-fold cross-validation)
 #f# stratified by station types, climate zones and/or years
 data_all$index <- 1:nrow(data_all)
-set.seed(123)  # good idea to set the random seed for reproducibility
+set.seed(seed)  # for reproducibility
 train_sub <- stratified(data_all, c('type_of_st', 'year', 'climate_zone'), 0.8)
 test_sub <- data_all[-train_sub$index, ]
 # Check whether the stratification works
@@ -97,13 +97,21 @@ hyper_grid <- expand.grid(
 )
 source("scr/fun_tune_rf.R")
 hyper_grid <- tune_rf(train_df, valid_df,
-                      y_name='obs', 
+                      y_varname='obs', 
                       x_varname = names(df_train %>% dplyr::select(matches(pred_c))),
                       csv_name, hyper_grid)
 
 #f# RF: train the model
 hyper_grid <- read.csv(paste0("data/workingData/rf_hyper_grid_", csv_name, '.csv'))
-
+source("scr/fun_opt_rf.R")
+rf_result <- opt_rf(train_df, test_df, 
+                    y_varname='obs', 
+                    x_varname = names(df_train %>% dplyr::select(matches(pred_c))),
+                    csv_name, hyper_grid)
+rf_result$eval_train
+rf_result$eval_test
+source("scr/fun_plot_rf_vi.R")
+plot_rf_vi(csv_name, var_no = 10)
 #f# RF: perform cross-validation
 
 
