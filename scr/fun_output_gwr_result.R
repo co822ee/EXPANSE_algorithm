@@ -14,11 +14,11 @@ output_gwr_result <- function(gwr.res.t, train_data, test_data, local_crs,
    gwr_train_df$df_type <- 'train'
    gwr_test_df$df_type <- 'test'
    gwr_df <- rbind(gwr_train_df, gwr_test_df)
-   gwr_df
-   
    write.csv(gwr_df, 
              paste0('data/workingData/GWR_result_all_', output_filename, '.csv'), 
              row.names = F)
+   gwr_df
+   
    # plot(gwr_df$gwr, gwr_df$obs)
    # abline(0, 1)
 }
