@@ -1,4 +1,5 @@
-tune_rf <- function(df_train, df_valid, y_varname, x_varname, csv_name, hyper_grid){
+tune_rf <- function(df_train, df_valid, y_varname, x_varname, csv_name, 
+                    hyper_grid, seed=123){
    for(i in 1:nrow(hyper_grid)){
       eq <- as.formula(paste(y_varname, "~", paste(x_varname,collapse='+'), sep = ""))
       model <- ranger(
@@ -6,7 +7,7 @@ tune_rf <- function(df_train, df_valid, y_varname, x_varname, csv_name, hyper_gr
          data = df_train,
          num.trees = hyper_grid$ntrees[i],
          mtry = hyper_grid$mtry[i],
-         seed = 123                        #keep the bootstrapping samples the same
+         seed = seed                        #keep the bootstrapping samples the same
       )
       
       # add OOB error to grid
