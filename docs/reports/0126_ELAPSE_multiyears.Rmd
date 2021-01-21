@@ -1,0 +1,49 @@
+---
+title: "Discussion_multiple year (ELAPSE)"
+author: "Youchen"
+date: "01/26/2021"
+output:
+  slidy_presentation: default
+  ioslides_presentation: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 5, fig.height = 5, warning=F)
+library(dplyr)
+library(raster)
+library(sf)
+library(car)  # for running slr
+library(GWmodel)  #gwr
+library(ranger) # Random forests
+library(caret)  #data partition
+library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
+library(splitTools)
+library(APMtools)
+```
+
+```{r read data}
+
+seed <- 123
+
+eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
+## Read in data (elapse NO2 2010 with climate zones included)
+elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
+                       encoding = "utf-8")
+## Read in data (airbase observations 1990s-2012)
+no2 <- read.csv("../airbase/EXPANSE_APM/data/processed/ab_v8_yr_no2.csv")
+# rename data
+elapse_no2 <- rename(elapse_no2, station_european_code=ï..Station)
+# reduce airbase data
+no2 <- no2 %>% rename(year=statistics_year, obs=statistic_value)
+## subset stations that are included in the elapse (cause at this stage, we don't have the predictor maps...)
+no2_e <- no2 %>% filter(no2$station_european_code%in%unique(elapse_no2$station_european_code))
+no2_e_all <- left_join(no2_e, elapse_no2, by="station_european_code")
+```
+```{r}
+csv_name
+
+paste0('data/workingData/SLR_result_all_', csv_name, '.csv')
+paste0('data/workingData/GWR_result_all_', csv_name, '.csv')
+paste0('data/workingData/RF_result_all_', csv_name, '.csv')
+```
+
