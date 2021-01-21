@@ -1,7 +1,9 @@
 library(dplyr)
 library(sf)
+library(car)  # for running slr
 library(caret)  #data partition
 library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
+library(APMtools)
 eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
 ## Read in data (elapse NO2 2010 with climate zones included)
 elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
@@ -41,14 +43,27 @@ sum(test_sub$year==2010)/nrow(test_sub)
 
 sum(train_sub$year==2010&train_sub$type_of_st=="Background"&train_sub$climate_zone==1)/nrow(train_sub)
 sum(test_sub$year==2010&test_sub$type_of_st=="Background"&test_sub$climate_zone==1)/nrow(test_sub)
-
+#TODO we need to look at the groups separately or in combined?
 #f# SLR: select predictors
 source("scr/fun_call_predictor.R")
 #f# SLR: define/preprocess predictors (direction of effect)
-source("scr/fun_proc_in_data.R")
-proc_in_data(train_sub, neg_pred)
-proc_in_data(test_sub, neg_pred)
-
+source("scr/fun_slr_proc_in_data.R")
+train_sub <- proc_in_data(train_sub, neg_pred)
+test_sub <- proc_in_data(test_sub, neg_pred)
+#f# SLR: train SLR
+source("scr/fun_slr.R")
+csv_name <- 'run1_train'
+slr_result <- slr(train_sub$obs, train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame(), 
+    cv_n = csv_name)
+slr_model <- slr_result[[3]]
+#f# SLR: test SLR
+source("scr/fun_output_slr_result.R")
+slr_poll <- output_slr_result(slr_model, test_df = test_sub, train_df = train_sub,
+                              output_filename = csv_name, obs_varname = 'obs')
+slr_poll$eval_train
+slr_poll$eval_test
+slr_df <- slr_poll[[1]]
+slr_df %>% filter(df_type=='train')
 #f# SLR: perform cross-validation
 #f# GWR: define/preprocess predictors (direction of effect)
 #f# GWR: read in SLR's selected predictors
