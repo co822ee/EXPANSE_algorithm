@@ -2,11 +2,13 @@ library(dplyr)
 library(raster)
 library(sf)
 library(car)  # for running slr
+library(GWmodel)  #gwr
+library(ranger) # Random forests
 library(caret)  #data partition
 library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
 library(splitTools)
 library(APMtools)
-library(GWmodel)  #gwr
+
 
 eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
 ## Read in data (elapse NO2 2010 with climate zones included)
