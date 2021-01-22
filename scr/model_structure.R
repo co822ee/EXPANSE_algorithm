@@ -33,8 +33,8 @@ subset_df_yrs <- function(obs_df, yr_target){
    no2_e_sub
 }
 #o# multiple years
-csv_name <- 'run1_train_09-11'
-no2_e_09_11 <- subset_df_yrs(no2_e_all, 2009:2011)
+csv_name <- 'run1_train_2010'
+no2_e_09_11 <- subset_df_yrs(no2_e_all, 2010)
 data_all <- no2_e_09_11
 #f# subset cross-validation data (5-fold cross-validation)
 #f# stratified by station types, climate zones and/or years
@@ -55,7 +55,7 @@ source("scr/fun_call_predictor.R")
 source("scr/fun_slr_proc_in_data.R")
 train_sub <- proc_in_data(train_sub, neg_pred)
 test_sub <- proc_in_data(test_sub, neg_pred)
-
+#------------------------
 #f# SLR: train SLR
 source("scr/fun_slr.R")
 slr_result <- slr(train_sub$obs, train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame(), 
@@ -71,14 +71,24 @@ slr_df <- slr_poll[[1]]
 #f# SLR: perform cross-validation
 
 #f# GWR: train GWR
+source("scr/fun_setupt_gwr.R")
+setup <- setup_gwr(train_sub, eu_bnd, 
+                   cellsize = 200000, local_crs = CRS("+init=EPSG:3035"))
+sp_train <- setup[[1]]
+grd <- setup[[2]]
+DM <- setup[[3]]
+source("scr/fun_calibr_gwr.R")
+nngb <- calibr_gwr(sp_train, csv_name)
+nngb
 source("scr/fun_gwr.R")
-gwr_model <- gwr(train_sub, test_sub, eu_bnd, 200000, csv_name, CRS("+init=EPSG:3035"))
+gwr_model <- gwr(sp_train, grd, nngb, csv_name)
 #f# GWR: perform cross-validation
 source("scr/fun_output_gwr_result.R")
 gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, CRS("+init=EPSG:3035"),
                             output_filename = csv_name)
 error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr'])
 error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr'])
+
 ## RF: split data into train, validation, and test data
 set.seed(123)
 index <- partition(data_all$country_code, p=c(train=0.6, valid=0.2, test=0.2))
