@@ -20,25 +20,16 @@ gwr <- function(train_data, test_data, eu_bnd, cellsize, slr_csvname, local_crs)
    plot(eu_bnd[1], pch=16, col='firebrick',add=TRUE)
    DM <- gw.dist(dp.locat=coordinates(sp_train),
                  rp.locat=coordinates(grd2))
-   DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
-                   rp.locat=coordinates(sp_train))
-   
    # Calibrate bandwidth using CV
-   
    # Build GWR
    slr <- read.csv(paste0("data/workingData/SLR_summary_model_", slr_csvname, '.csv'))
    eq <- as.formula(paste0('NO2_2010~',  paste(slr$variables[-1], collapse = "+")))
    summary(lm(eq, data=train_data))
-   nngb <- bw.gwr(eq, data=sp_train, approach = "CV",
-                  kernel = "exponential", adaptive = T, dMat = DM_1)
    gwr.res.t <- gwr.basic(eq,
                           data=sp_train, 
-                          regression.points=grd2, 
-                          adaptive = T,
-                          bw=nngb, 
+                          regression.points=grd2, bw=50000000, 
                           dMat=DM,
                           kernel='exponential')
-   
    gwr.res.t
 }
 
