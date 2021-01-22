@@ -20,6 +20,7 @@ gwr <- function(train_data, test_data, eu_bnd, cellsize, slr_csvname, local_crs)
    plot(eu_bnd[1], pch=16, col='firebrick',add=TRUE)
    DM <- gw.dist(dp.locat=coordinates(sp_train),
                  rp.locat=coordinates(grd2))
+   # Calibrate bandwidth using CV
    # Build GWR
    slr <- read.csv(paste0("data/workingData/SLR_summary_model_", slr_csvname, '.csv'))
    eq <- as.formula(paste0('NO2_2010~',  paste(slr$variables[-1], collapse = "+")))
