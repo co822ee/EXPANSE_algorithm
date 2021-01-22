@@ -1,5 +1,6 @@
 tune_rf <- function(df_train, df_valid, y_varname, x_varname, csv_name, 
                     hyper_grid, seed=123){
+   print("tune Random forests mtry and num.trees")
    for(i in 1:nrow(hyper_grid)){
       eq <- as.formula(paste(y_varname, "~", paste(x_varname,collapse='+'), sep = ""))
       model <- ranger(
