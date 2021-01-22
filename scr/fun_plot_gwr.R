@@ -13,3 +13,8 @@ lapply(seq_along(names(gwr.res.t$SDF)), plot_gwr_coef)
 # method 2
 coef_stack <- stack(gwr.res.t$SDF)
 plot(coef_stack)
+
+tm_shape(gwr.res.t$SDF['Intercept'])+
+   tm_raster(n=10,palette = "plasma", auto.palette.mapping = FALSE,
+             title="OMI")+
+   tm_shape(eu_bnd)+tm_borders(col = "white")
