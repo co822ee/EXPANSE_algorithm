@@ -1291,20 +1291,6 @@ slr <- function(POLL, pred, cv_n=1){
    ###################
    # exclusion step  #
    ###################---------------------
-   
-   temp <- 0
-   besti <- 0
-   
-   for (i in 1:20){
-      print(paste("model", i, "R2", models[[i]]$R2bestmodel))
-      if((models[[i]]$R2bestmodel-temp > 0.0)==T){
-         temp <- models[[i]]$R2bestmodel
-         besti <- i
-      } else {
-         n <- besti
-      }}
-   
-   
    temp <- 0
    besti <- 0
    
