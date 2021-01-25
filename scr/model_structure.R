@@ -85,7 +85,7 @@ for(i in seq_along(names)){
    nngb <- calibr_gwr(sp_train, csv_name)
    nngb
    source("scr/fun_gwr.R")
-   gwr_model <- gwr(sp_train, grd, nngb, csv_name)
+   gwr_model <- gwr(sp_train, grd, DM, nngb, csv_name)
    #f# GWR: perform cross-validation
    source("scr/fun_output_gwr_result.R")
    gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, CRS("+init=EPSG:3035"),
