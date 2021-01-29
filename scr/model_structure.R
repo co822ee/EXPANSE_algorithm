@@ -44,7 +44,7 @@ for(i in seq_along(names)){
    #f# stratified by station types, climate zones and/or years
    data_all$index <- 1:nrow(data_all)
    set.seed(seed)  # for reproducibility
-   train_sub <- stratified(data_all, c('type_of_st', 'year', 'climate_zone'), 0.8)
+   train_sub <- stratified(data_all, c('type_of_st', 'climate_zone'), 0.8)
    test_sub <- data_all[-train_sub$index, ]
    # Check whether the stratification works
    sum(train_sub$year==2010)/nrow(train_sub)
