@@ -8,8 +8,11 @@ library(caret)  #data partition
 library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
 library(splitTools)
 library(APMtools)
-
+library(lme4) # linear mixed effect models
+library(CAST) # For dividing training and test data (CreateSpacetimeFolds)
+library(performance) #extract model performance matrix for lme
 seed <- 123
+local_crs <- CRS("+init=EPSG:3035")
 
 eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
 ## Read in data (elapse NO2 2010 with climate zones included)
@@ -44,14 +47,47 @@ for(i in seq_along(names)){
    #f# stratified by station types, climate zones and/or years
    data_all$index <- 1:nrow(data_all)
    set.seed(seed)  # for reproducibility
-   train_sub <- stratified(data_all, c('type_of_st', 'climate_zone'), 0.8)
-   test_sub <- data_all[-train_sub$index, ]
-   # Check whether the stratification works
-   sum(train_sub$year==2010)/nrow(train_sub)
-   sum(test_sub$year==2010)/nrow(test_sub)
+   # train_sub <- stratified(data_all, c('type_of_st', 'climate_zone','station_european_code'), 0.8)
+   # test_sub <- data_all[-train_sub$index, ]
    
-   sum(train_sub$year==2010&train_sub$type_of_st=="Background"&train_sub$climate_zone==1)/nrow(train_sub)
-   sum(test_sub$year==2010&test_sub$type_of_st=="Background"&test_sub$climate_zone==1)/nrow(test_sub)
+   # Test only leave location out first
+   folds=CreateSpacetimeFolds(
+      data_all,
+      spacevar = "station_european_code",     # leave location out
+      timevar = NA,
+      k = 5,
+      class = NA,
+      seed = seed
+   )
+   train_sub <- data_all[folds$index[[1]], ]
+   test_sub <- data_all[folds$indexOut[[1]], ]
+   
+   # Check whether the stratification works
+   all(unique(train_sub$station_european_code)%in%unique(test_sub$station_european_code))
+   all_sub <- rbind(train_sub %>% mutate(df_type='train'), 
+                    test_sub %>% mutate(df_type='test'))
+   all_sp <- SpatialPointsDataFrame(coords = cbind(all_sub$Xcoord, all_sub$Ycoord),
+                                      all_sub, proj4string = local_crs)
+   tmap_mode('plot')
+   years <- all_sp$year %>% unique
+   maps_l <- lapply(years, function(year_i){
+      map_1 <- tm_shape(all_sp[all_sp$year==year_i, ]) +
+         tm_dots(size = 0.05, col="df_type",   # col = "NO2",          # popup.vars for showing values
+                 title = paste0('region'),
+                 palette=c('red','blue'))+
+         tm_shape(eu_bnd)+
+         tm_borders()+
+         tm_layout(title=year_i)
+      map_1
+   })
+   do.call(tmap_arrange, maps_l)
+   plot(train_sp)
+   
+   sum(train_sub$type_of_st=="Background"&train_sub$climate_zone==1)/nrow(train_sub)
+   sum(test_sub$type_of_st=="Background"&test_sub$climate_zone==1)/nrow(test_sub)
+   # Check whether every station serve as the same type of data over years
+   any(unique(train_sub$station_european_code)%in%unique(test_sub$station_european_code))
+   # --> yes indeed the stations are not the same in training and test data
    #TODO we need to look at the groups separately or in combined?
    #f# SLR: select predictors
    source("scr/fun_call_predictor.R")
@@ -60,7 +96,13 @@ for(i in seq_along(names)){
    train_sub <- proc_in_data(train_sub, neg_pred)
    test_sub <- proc_in_data(test_sub, neg_pred)
    #------------------------
-   #f# SLR: train SLR
+   # LME
+   source("scr/fun_slr_lme.R")
+   lme_result <- slr_lme(train_sub$obs, 
+                         train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame(), 
+                         stations = train_sub$station_european_code,
+                         cv_n = csv_name)
+   #---------#f# SLR: train SLR -----------
    source("scr/fun_slr.R")
    slr_result <- slr(train_sub$obs, train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame(), 
                      cv_n = csv_name)
@@ -74,10 +116,10 @@ for(i in seq_along(names)){
    slr_df <- slr_poll[[1]]
    #f# SLR: perform cross-validation
    
-   #f# GWR: train GWR
+   #-----------#f# GWR: train GWR----------
    source("scr/fun_setupt_gwr.R")
    setup <- setup_gwr(train_sub, eu_bnd, 
-                      cellsize = 200000, local_crs = CRS("+init=EPSG:3035"))
+                      cellsize = 200000, local_crs = local_crs)
    sp_train <- setup[[1]]
    grd <- setup[[2]]
    DM <- setup[[3]]
@@ -88,12 +130,12 @@ for(i in seq_along(names)){
    gwr_model <- gwr(sp_train, grd, DM, nngb, csv_name)
    #f# GWR: perform cross-validation
    source("scr/fun_output_gwr_result.R")
-   gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, CRS("+init=EPSG:3035"),
+   gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, local_crs,
                                output_filename = csv_name)
    error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr'])
    error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr'])
    
-   ## RF: split data into train, validation, and test data
+   ##--------- RF: split data into train, validation, and test data--------
    set.seed(seed)
    # index <- partition(data_all$country_code, p=c(train=0.6, valid=0.2, test=0.2))
    # train_df <- data_all[index$train, ]
@@ -101,7 +143,19 @@ for(i in seq_along(names)){
    # test_df <- data_all[index$test, ]
    train_df <- train_sub
    test_df <- test_sub
-   x_varname = names(train_df %>% dplyr::select(matches(pred_c)))
+   x_varname = names(data_all %>% dplyr::select(matches(pred_c)))
+   # LLO CV (small test for multiple years)
+   indices <- CreateSpacetimeFolds(data_all,spacevar = "station_european_code",
+                                   k=3, seed=seed)
+   model_LLO <- train(data_all[,x_varname],data_all$obs,
+                      method="rf",tuneGrid=data.frame("mtry"=80), importance=TRUE,
+                      trControl=trainControl(method="cv",
+                                             index = indices$index))
+   model_LLO
+   # --> Rsquared 0.5720142 (for 2009-2011) so indeed the previous good performance 
+   #     is due to the information leakage ("mtry"=14)
+   # seq(30, length(x_varname), by=10) --> best mtry = 110
+   # seq(30, length(x_varname), by=50) --> best mtry:80
    #f# RF: tune hyperparameter
    hyper_grid <- expand.grid(
       mtry = seq(30, length(x_varname), by=10),
