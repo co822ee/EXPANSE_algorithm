@@ -1,6 +1,6 @@
 calibr_gwr <- function(sp_train, slr_csvname){
    slr <- read.csv(paste0("data/workingData/SLR_summary_model_", slr_csvname, '.csv'))
-   eq <- as.formula(paste0('NO2_2010~',  paste(slr$variables[-1], collapse = "+")))
+   eq <- as.formula(paste0('obs~',  paste(slr$variables[-1], collapse = "+")))
    
    # Calibrate bandwidth using CV
    DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
