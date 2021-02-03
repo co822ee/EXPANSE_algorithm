@@ -179,16 +179,15 @@ for(i in seq_along(names)){
          y_pred_lm <- predict(aids_lm, newdata=prediction_subset)
          y_pred_lmm <- predict(aids_lmm, newdata=prediction_subset,allow.new.levels=TRUE)
          y_true <- prediction_subset$obs
-         MAE_within_subjects_lm<- c(MAE_within_subjects_lm, error_matrix(y_pred_lm,y_true)$MAE)
-         MAE_within_subjects_lmm<- c(MAE_within_subjects_lmm, error_matrix(y_pred_lmm,y_true)$MAE)
-         RMSE_within_subjects_lm<-c(MSE_within_subjects_lm, error_matrix(y_pred_lm,y_true)$RMSE)
-         RMSE_within_subjects_lmm<-c(MSE_within_subjects_lmm, error_matrix(y_pred_lmm,y_true)$RMSE)
+         MAE_within_subjects_lm<- c(MAE_within_subjects_lm, error_matrix(y_pred_lm,y_true)[5])
+         MAE_within_subjects_lmm<- c(MAE_within_subjects_lmm, error_matrix(y_pred_lmm,y_true)[5])
+         RMSE_within_subjects_lm<-c(RMSE_within_subjects_lm, error_matrix(y_pred_lm,y_true)[1])
+         RMSE_within_subjects_lmm<-c(RMSE_within_subjects_lmm, error_matrix(y_pred_lmm,y_true)[1])
       }
    }
    boxplot(MAE_within_subjects_lm, MAE_within_subjects_lm,main='MAE',names=c('Linear Model','Linear Mixed Model'),outline=FALSE)
-   boxplot(RMSE_within_subjects_lm, RMSE_within_subjects_lmm,main='MSE',names=c('Linear Model','Linear Mixed Model'),outline=FALSE)
-   
-   
+   boxplot(RMSE_within_subjects_lm, RMSE_within_subjects_lmm,main='RMSE',names=c('Linear Model','Linear Mixed Model'),outline=FALSE)
+  
    #-----------#f# GWR: train GWR----------
    source("scr/fun_setupt_gwr.R")
    setup <- setup_gwr(train_sub, eu_bnd, 
