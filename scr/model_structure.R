@@ -50,21 +50,21 @@ for(i in seq_along(names)){
    # test_sub <- data_all[-train_sub$index, ]
    
    # Test only leave location out first 
-   # Method 1:
-   # folds=CreateSpacetimeFolds(
-   #    data_all,
-   #    spacevar = "station_european_code",     # leave location out
-   #    timevar = NA,
-   #    k = 5,
-   #    class = NA,
-   #    seed = seed
-   # )
+   # Method 1: (easier to use)
+   folds=CreateSpacetimeFolds(
+      data_all,
+      spacevar = "station_european_code",     # leave location out
+      timevar = NA,
+      k = 5,
+      class = NA,
+      seed = seed
+   )
    # Method 2:
-   all_stations <- unique(data_all$station_european_code)
-   #we create cross validation folds using caret's createFolds
-   num_folds <- 5
-   set.seed(seed)  # for reproducibility
-   folds <- createFolds(all_stations,k=num_folds,list=TRUE,returnTrain=TRUE)
+   # all_stations <- unique(data_all$station_european_code)
+   # #we create cross validation folds using caret's createFolds
+   # num_folds <- 5
+   # set.seed(seed)  # for reproducibility
+   # folds <- createFolds(all_stations,k=num_folds,list=TRUE,returnTrain=TRUE)
    
    train_sub <- data_all[folds$index[[1]], ]
    test_sub <- data_all[folds$indexOut[[1]], ]
@@ -115,6 +115,7 @@ for(i in seq_along(names)){
    slr_poll$eval_train
    slr_poll$eval_test
    slr_df <- slr_poll[[1]]
+   
    #f# SLR: perform cross-validation
    #------------------------
    # LME
@@ -125,7 +126,7 @@ for(i in seq_along(names)){
    #                       cv_n = csv_name)
    paste(names(coefficients(slr_model))[-1], collapse = "+")
    modeltry2<-lmer(POLL~pred[,models[[1]]$indexbestmodel]+ pred[,i] + (1|stations))
-   eq <- as.formula(paste0('obs~',
+   eq_lme <- as.formula(paste0('obs~',
                            paste(names(coefficients(slr_model))[-1], collapse = "+"),
                            "+ (1|station_european_code)"))
    lme_model <- lmer(eq, data = train_sub)
@@ -134,6 +135,60 @@ for(i in seq_along(names)){
    performance(slr_model)
    summary(lme_model)   # station grouping explain 75.8% variance left over after the variance is explained by fixed effects 
    summary(slr_model)
+   #--Performance evaluation----
+   # Because data within stations is not independent, 
+   # we need to construct within-station averages to construct relevant summary statistics.
+   #data structures to hold results
+   MAE_within_subjects_lm <- c()
+   MAE_within_subjects_lmm <- c()
+   RMSE_within_subjects_lm <- c()
+   RMSE_within_subjects_lmm <- c()
+   
+   
+   for(i in seq_along(folds$index)){
+      #generate train/test
+      train <- data_all[folds$index[[i]], ]
+      test <- data_all[folds$indexOut[[i]], ]
+      
+      source("scr/fun_call_predictor.R")
+      #f# SLR: define/preprocess predictors (direction of effect)
+      source("scr/fun_slr_proc_in_data.R")
+      train <- proc_in_data(train, neg_pred)
+      test <- proc_in_data(test, neg_pred)
+      
+      #fit models
+      #---------#f# SLR: train SLR -----------
+      source("scr/fun_slr.R")
+      slr_result <- slr(train$obs, train %>% dplyr::select(matches(pred_c)) %>% as.data.frame(), 
+                        cv_n = paste0("5fold_", i))
+      slr_model <- slr_result[[3]]
+      
+      eq_slr <- as.formula(paste0('obs~',
+                                  paste(names(coefficients(slr_model))[-1], collapse = "+")))
+      
+      eq_lme <- as.formula(paste0('obs~',
+                                  paste(names(coefficients(slr_model))[-1], collapse = "+"),
+                                  "+ (1|station_european_code)"))
+      
+      aids_lm <- lm(formula=eq_slr, data=train)
+      aids_lmm <-lmer(formula=eq_lme, data=train)
+      test_participants <- unique(test$station_european_code)
+      for(participant in test_participants){
+         prediction_subset <- subset(test,station_european_code==participant)
+         #predict
+         y_pred_lm <- predict(aids_lm, newdata=prediction_subset)
+         y_pred_lmm <- predict(aids_lmm, newdata=prediction_subset,allow.new.levels=TRUE)
+         y_true <- prediction_subset$obs
+         MAE_within_subjects_lm<- c(MAE_within_subjects_lm, error_matrix(y_pred_lm,y_true)$MAE)
+         MAE_within_subjects_lmm<- c(MAE_within_subjects_lmm, error_matrix(y_pred_lmm,y_true)$MAE)
+         RMSE_within_subjects_lm<-c(MSE_within_subjects_lm, error_matrix(y_pred_lm,y_true)$RMSE)
+         RMSE_within_subjects_lmm<-c(MSE_within_subjects_lmm, error_matrix(y_pred_lmm,y_true)$RMSE)
+      }
+   }
+   boxplot(MAE_within_subjects_lm, MAE_within_subjects_lm,main='MAE',names=c('Linear Model','Linear Mixed Model'),outline=FALSE)
+   boxplot(RMSE_within_subjects_lm, RMSE_within_subjects_lmm,main='MSE',names=c('Linear Model','Linear Mixed Model'),outline=FALSE)
+   
+   
    #-----------#f# GWR: train GWR----------
    source("scr/fun_setupt_gwr.R")
    setup <- setup_gwr(train_sub, eu_bnd, 
