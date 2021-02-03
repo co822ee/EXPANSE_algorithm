@@ -46,19 +46,26 @@ for(i in seq_along(names)){
    #f# subset cross-validation data (5-fold cross-validation)
    #f# stratified by station types, climate zones and/or years
    data_all$index <- 1:nrow(data_all)
-   set.seed(seed)  # for reproducibility
    # train_sub <- stratified(data_all, c('type_of_st', 'climate_zone','station_european_code'), 0.8)
    # test_sub <- data_all[-train_sub$index, ]
    
-   # Test only leave location out first
-   folds=CreateSpacetimeFolds(
-      data_all,
-      spacevar = "station_european_code",     # leave location out
-      timevar = NA,
-      k = 5,
-      class = NA,
-      seed = seed
-   )
+   # Test only leave location out first 
+   # Method 1:
+   # folds=CreateSpacetimeFolds(
+   #    data_all,
+   #    spacevar = "station_european_code",     # leave location out
+   #    timevar = NA,
+   #    k = 5,
+   #    class = NA,
+   #    seed = seed
+   # )
+   # Method 2:
+   all_stations <- unique(data_all$station_european_code)
+   #we create cross validation folds using caret's createFolds
+   num_folds <- 5
+   set.seed(seed)  # for reproducibility
+   folds <- createFolds(all_stations,k=num_folds,list=TRUE,returnTrain=TRUE)
+   
    train_sub <- data_all[folds$index[[1]], ]
    test_sub <- data_all[folds$indexOut[[1]], ]
    
@@ -95,13 +102,7 @@ for(i in seq_along(names)){
    source("scr/fun_slr_proc_in_data.R")
    train_sub <- proc_in_data(train_sub, neg_pred)
    test_sub <- proc_in_data(test_sub, neg_pred)
-   #------------------------
-   # LME
-   source("scr/fun_slr_lme.R")
-   lme_result <- slr_lme(train_sub$obs, 
-                         train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame(), 
-                         stations = train_sub$station_european_code,
-                         cv_n = csv_name)
+   
    #---------#f# SLR: train SLR -----------
    source("scr/fun_slr.R")
    slr_result <- slr(train_sub$obs, train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame(), 
@@ -115,7 +116,24 @@ for(i in seq_along(names)){
    slr_poll$eval_test
    slr_df <- slr_poll[[1]]
    #f# SLR: perform cross-validation
-   
+   #------------------------
+   # LME
+   source("scr/fun_slr_lme.R")
+   # lme_result <- slr_lme(train_sub$obs, 
+   #                       train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame(), 
+   #                       stations = train_sub$station_european_code,
+   #                       cv_n = csv_name)
+   paste(names(coefficients(slr_model))[-1], collapse = "+")
+   modeltry2<-lmer(POLL~pred[,models[[1]]$indexbestmodel]+ pred[,i] + (1|stations))
+   eq <- as.formula(paste0('obs~',
+                           paste(names(coefficients(slr_model))[-1], collapse = "+"),
+                           "+ (1|station_european_code)"))
+   lme_model <- lmer(eq, data = train_sub)
+   performance(lme_model)[1] %>% as.numeric()
+   performance(lme_model)
+   performance(slr_model)
+   summary(lme_model)   # station grouping explain 75.8% variance left over after the variance is explained by fixed effects 
+   summary(slr_model)
    #-----------#f# GWR: train GWR----------
    source("scr/fun_setupt_gwr.R")
    setup <- setup_gwr(train_sub, eu_bnd, 
