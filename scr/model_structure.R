@@ -45,8 +45,9 @@ for(i in seq_along(names)){
    data_all <- no2_e_09_11
    #f# subset cross-validation data (5-fold cross-validation)
    #f# stratified by station types, climate zones and/or years
+   set.seed(seed)
    data_all$index <- 1:nrow(data_all)
-   # train_sub <- stratified(data_all, c('type_of_st', 'climate_zone','station_european_code'), 0.8)
+   # train_sub <- stratified(data_all, c('type_of_st', 'climate_zone'), 0.8)
    # test_sub <- data_all[-train_sub$index, ]
    
    # Test only leave location out first 
@@ -125,7 +126,6 @@ for(i in seq_along(names)){
    #                       stations = train_sub$station_european_code,
    #                       cv_n = csv_name)
    paste(names(coefficients(slr_model))[-1], collapse = "+")
-   modeltry2<-lmer(POLL~pred[,models[[1]]$indexbestmodel]+ pred[,i] + (1|stations))
    eq_lme <- as.formula(paste0('obs~',
                            paste(names(coefficients(slr_model))[-1], collapse = "+"),
                            "+ (1|station_european_code)"))
@@ -135,6 +135,8 @@ for(i in seq_along(names)){
    performance(slr_model)
    summary(lme_model)   # station grouping explain 75.8% variance left over after the variance is explained by fixed effects 
    summary(slr_model)
+   
+   boxplot(train_sub$obs)
    #--Performance evaluation----
    # Because data within stations is not independent, 
    # we need to construct within-station averages to construct relevant summary statistics.
@@ -177,7 +179,7 @@ for(i in seq_along(names)){
          prediction_subset <- subset(test,station_european_code==participant)
          #predict
          y_pred_lm <- predict(aids_lm, newdata=prediction_subset)
-         y_pred_lmm <- predict(aids_lmm, newdata=prediction_subset,allow.new.levels=TRUE)
+         y_pred_lmm <- lme4:::predict.merMod(aids_lmm, newdata=prediction_subset,allow.new.levels=TRUE)
          y_true <- prediction_subset$obs
          MAE_within_subjects_lm<- c(MAE_within_subjects_lm, error_matrix(y_pred_lm,y_true)[5])
          MAE_within_subjects_lmm<- c(MAE_within_subjects_lmm, error_matrix(y_pred_lmm,y_true)[5])
