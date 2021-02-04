@@ -118,78 +118,7 @@ for(i in seq_along(names)){
    slr_df <- slr_poll[[1]]
    
    #f# SLR: perform cross-validation
-   #------------------------
-   # LME
-   source("scr/fun_slr_lme.R")
-   # lme_result <- slr_lme(train_sub$obs, 
-   #                       train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame(), 
-   #                       stations = train_sub$station_european_code,
-   #                       cv_n = csv_name)
-   paste(names(coefficients(slr_model))[-1], collapse = "+")
-   eq_lme <- as.formula(paste0('obs~',
-                           paste(names(coefficients(slr_model))[-1], collapse = "+"),
-                           "+ (1|station_european_code)"))
-   lme_model <- lmer(eq, data = train_sub)
-   performance(lme_model)[1] %>% as.numeric()
-   performance(lme_model)
-   performance(slr_model)
-   summary(lme_model)   # station grouping explain 75.8% variance left over after the variance is explained by fixed effects 
-   summary(slr_model)
    
-   boxplot(train_sub$obs)
-   #--Performance evaluation----
-   # Because data within stations is not independent, 
-   # we need to construct within-station averages to construct relevant summary statistics.
-   #data structures to hold results
-   MAE_within_subjects_lm <- c()
-   MAE_within_subjects_lmm <- c()
-   RMSE_within_subjects_lm <- c()
-   RMSE_within_subjects_lmm <- c()
-   
-   
-   for(i in seq_along(folds$index)){
-      #generate train/test
-      train <- data_all[folds$index[[i]], ]
-      test <- data_all[folds$indexOut[[i]], ]
-      
-      source("scr/fun_call_predictor.R")
-      #f# SLR: define/preprocess predictors (direction of effect)
-      source("scr/fun_slr_proc_in_data.R")
-      train <- proc_in_data(train, neg_pred)
-      test <- proc_in_data(test, neg_pred)
-      
-      #fit models
-      #---------#f# SLR: train SLR -----------
-      source("scr/fun_slr.R")
-      slr_result <- slr(train$obs, train %>% dplyr::select(matches(pred_c)) %>% as.data.frame(), 
-                        cv_n = paste0("5fold_", i))
-      slr_model <- slr_result[[3]]
-      
-      eq_slr <- as.formula(paste0('obs~',
-                                  paste(names(coefficients(slr_model))[-1], collapse = "+")))
-      
-      eq_lme <- as.formula(paste0('obs~',
-                                  paste(names(coefficients(slr_model))[-1], collapse = "+"),
-                                  "+ (1|station_european_code)"))
-      
-      aids_lm <- lm(formula=eq_slr, data=train)
-      aids_lmm <-lmer(formula=eq_lme, data=train)
-      test_participants <- unique(test$station_european_code)
-      for(participant in test_participants){
-         prediction_subset <- subset(test,station_european_code==participant)
-         #predict
-         y_pred_lm <- predict(aids_lm, newdata=prediction_subset)
-         y_pred_lmm <- lme4:::predict.merMod(aids_lmm, newdata=prediction_subset,allow.new.levels=TRUE)
-         y_true <- prediction_subset$obs
-         MAE_within_subjects_lm<- c(MAE_within_subjects_lm, error_matrix(y_pred_lm,y_true)[5])
-         MAE_within_subjects_lmm<- c(MAE_within_subjects_lmm, error_matrix(y_pred_lmm,y_true)[5])
-         RMSE_within_subjects_lm<-c(RMSE_within_subjects_lm, error_matrix(y_pred_lm,y_true)[1])
-         RMSE_within_subjects_lmm<-c(RMSE_within_subjects_lmm, error_matrix(y_pred_lmm,y_true)[1])
-      }
-   }
-   boxplot(MAE_within_subjects_lm, MAE_within_subjects_lm,main='MAE',names=c('Linear Model','Linear Mixed Model'),outline=FALSE)
-   boxplot(RMSE_within_subjects_lm, RMSE_within_subjects_lmm,main='RMSE',names=c('Linear Model','Linear Mixed Model'),outline=FALSE)
-  
    #-----------#f# GWR: train GWR----------
    source("scr/fun_setupt_gwr.R")
    setup <- setup_gwr(train_sub, eu_bnd, 
