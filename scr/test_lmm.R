@@ -39,6 +39,7 @@ names <- paste0('run1_train_', c('2010', '09-11', '08-12'))
 years <- list(2010, 2009:2011, 2008:2012)
 i <- 2
 csv_name <- names[i]
+csv_name
 no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[i]])
 data_all <- no2_e_09_11
 #f# subset cross-validation data (5-fold cross-validation)
@@ -96,13 +97,7 @@ maps_l <- lapply(years, function(year_i){
 })
 maps_l$nrow <- 1
 do.call(tmap_arrange, maps_l)
-plot(train_sp)
 
-
-
-# Check whether every station serve as the same type of data over years
-any(unique(train_sub$station_european_code)%in%unique(test_sub$station_european_code))
-# --> yes indeed the stations are not the same in training and test data
 #TODO we need to look at the groups separately or in combined?
 #f# SLR: select predictors
 source("scr/fun_call_predictor.R")
@@ -114,19 +109,31 @@ test_sub <- proc_in_data(test_sub, neg_pred)
 
 #------------------------
 # LME
-source("scr/fun_slr_lme.R")
+# source("scr/fun_slr_lme.R")
 # lme_result <- slr_lme(train_sub$obs, 
 #                       train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame(), 
 #                       stations = train_sub$station_european_code,
 #                       cv_n = csv_name)
-paste(names(coefficients(slr_model))[-1], collapse = "+")
+source("scr/fun_slr.R")
+slr_result <- slr(train_sub$obs, train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame(), 
+                  cv_n = csv_name)
+slr_model <- slr_result[[3]]
 eq_lme <- as.formula(paste0('obs~',
                             paste(names(coefficients(slr_model))[-1], collapse = "+"),
-                            "+ (1|station_european_code)"))
-lme_model <- lmer(eq, data = train_sub)
-performance(lme_model)[1] %>% as.numeric()
+                            "+ (1|station_european_code) + (1|year)"))
+eq_lme
+lme_model <- lmer(eq_lme, data = train_sub)
+lme_model
+lmer(as.formula(paste0('obs~',
+                       paste(names(coefficients(slr_model))[-1], collapse = "+"),
+                       "+ (1|station_european_code)")), data = train_sub)
+# performance(lme_model)[1] %>% as.numeric()
 performance(lme_model)
 performance(slr_model)
+
+lme_p <- predict(lme_model, newdata=test_sub, allow.new.levels=T)  #, allow.new.levels=TRUE
+slr_p <- predict(slr_model, newdata=test_sub)
+plot(lme_p, slr_p)
 summary(lme_model)   # station grouping explain 75.8% variance left over after the variance is explained by fixed effects 
 summary(slr_model)
 
@@ -135,10 +142,10 @@ boxplot(train_sub$obs)
 # Because data within stations is not independent, 
 # we need to construct within-station averages to construct relevant summary statistics.
 #data structures to hold results
-MAE_within_subjects_lm <- c()
-MAE_within_subjects_lmm <- c()
-RMSE_within_subjects_lm <- c()
-RMSE_within_subjects_lmm <- c()
+MAE_within_subjects_lm <- vector(mode = "numeric")
+MAE_within_subjects_lmm <- vector(mode = "numeric")
+RMSE_within_subjects_lm <- vector(mode = "numeric")
+RMSE_within_subjects_lmm <- vector(mode = "numeric")
 
 
 for(i in seq_along(folds$index)){
@@ -173,7 +180,7 @@ for(i in seq_along(folds$index)){
       prediction_subset <- subset(test,station_european_code==participant)
       #predict
       y_pred_lm <- predict(aids_lm, newdata=prediction_subset)
-      y_pred_lmm <- lme4:::predict.merMod(aids_lmm, newdata=prediction_subset,allow.new.levels=TRUE)
+      y_pred_lmm <- lme4:::predict.merMod(aids_lmm, newdata=prediction_subset, allow.new.levels=TRUE)
       y_true <- prediction_subset$obs
       MAE_within_subjects_lm<- c(MAE_within_subjects_lm, error_matrix(y_pred_lm,y_true)[5])
       MAE_within_subjects_lmm<- c(MAE_within_subjects_lmm, error_matrix(y_pred_lmm,y_true)[5])
