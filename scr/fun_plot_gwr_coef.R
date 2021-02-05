@@ -1,18 +1,18 @@
 plot_gwr_coef <- function(csv_i, n_row, n_col){
+   # nngbs <- (lapply(paste0("data/workingData/GWR_nngb_", names, ".txt"), read.table) %>% Reduce(rbind,.))[,1]
    # source("scr/fun_setupt_gwr.R")
-   nngbs <- (lapply(paste0("data/workingData/GWR_nngb_", names, ".txt"), read.table) %>% Reduce(rbind,.))[,1]
    # setup <- setup_gwr(train_sub, eu_bnd, 
    #                    cellsize = 200000, local_crs = CRS("+init=EPSG:3035"))
    # sp_train <- setup[[1]]
    # grd <- setup[[2]]
    # DM <- setup[[3]]
-   # gwr_model <- gwr(sp_train, grd, DM, nngbs[csv_i], names[csv_i])
+   # gwr_model <- gwr(sp_train, grd, DM, nngb, names[csv_i])
    fun <- function() {
       plot(eu_bnd[1], add = TRUE,col='transparent',border='grey', alpha=0.05)
    }
    # print(csv_names[csv_i])
    # print(read.csv(paste0("data/workingData/SLR_summary_model_", names[csv_i], '.csv'))[,c(1:2,7)])
-   # print(paste0("nearest neighbours: ", nngbs[csv_i]))
+   # print(paste0("nearest neighbours: ", nngb))
    # plot(stack(gwr_model$SDF), addfun = fun)
    # breaks <- list(seq(10,60,length.out = 6), seq(0,20,length.out = 6))
    gwr_plot <- vector(mode = "list", length = ncol(gwr_model$SDF))
@@ -32,7 +32,7 @@ plot_gwr_coef <- function(csv_i, n_row, n_col){
    mergeMap <- do.call(tmap_arrange, gwr_plot)
    if(!dir.exists("graph/gwr_coef/")) dir.create("graph/gwr_coef/")
    tmap_save(mergeMap, filename = paste0('graph/gwr_coef/', csv_name, ".tiff"), 
-             dpi=600, height=8, width=13, units='in')
+             dpi=600, height=10, width=10, units='in')
    print(paste0('output graph/gwr_coef/', csv_name, ".tiff"))
 }
 

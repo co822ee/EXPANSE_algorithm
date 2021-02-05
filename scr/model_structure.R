@@ -80,18 +80,18 @@ for(i in seq_along(names)){
    all_sp <- SpatialPointsDataFrame(coords = cbind(all_sub$Xcoord, all_sub$Ycoord),
                                       all_sub, proj4string = local_crs)
    tmap_mode('plot')
-   years <- all_sp$year %>% unique
-   maps_l <- lapply(years, function(year_i){
-      map_1 <- tm_shape(all_sp[all_sp$year==year_i, ]) +
-         tm_dots(size = 0.05, col="df_type",   # col = "NO2",          # popup.vars for showing values
-                 title = paste0('region'),
-                 palette=c('red','blue'))+
-         tm_shape(eu_bnd)+
-         tm_borders()+
-         tm_layout(title=year_i)
-      map_1
-   })
-   do.call(tmap_arrange, maps_l)
+   # year_s <- all_sp$year %>% unique
+   # maps_l <- lapply(year_s, function(year_i){
+   #    map_1 <- tm_shape(all_sp[all_sp$year==year_i, ]) +
+   #       tm_dots(size = 0.05, col="df_type",   # col = "NO2",          # popup.vars for showing values
+   #               title = paste0('region'),
+   #               palette=c('red','blue'))+
+   #       tm_shape(eu_bnd)+
+   #       tm_borders()+
+   #       tm_layout(title=year_i)
+   #    map_1
+   # })
+   # do.call(tmap_arrange, maps_l)
    
    sum(train_sub$type_of_st=="Background"&train_sub$climate_zone==1)/nrow(train_sub)
    sum(test_sub$type_of_st=="Background"&test_sub$climate_zone==1)/nrow(test_sub)
@@ -110,6 +110,9 @@ for(i in seq_along(names)){
    #------------------Above code is needed for all algorithms----------------------
    #---------#f# SLR: train SLR -----------
    source("scr/fun_slr.R")
+   # POLL=train_sub$obs
+   # pred <- train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame()
+   # cv_n = csv_name
    slr_result <- slr(train_sub$obs, train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame(), 
                      cv_n = csv_name)
    slr_model <- slr_result[[3]]
@@ -145,9 +148,9 @@ for(i in seq_along(names)){
    error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr']) %>% 
       print()
    # plot gwr surface
-   ncol(gwr_model$SDF)  # the number of predictors selected
+   ncol(gwr_model$SDF) %>% print()  # the number of predictors selected
    source('scr/fun_plot_gwr_coef.R')
-   plot_gwr_coef(i, n_row = 2, n_col = 4)
+   plot_gwr_coef(i, n_row = 3, n_col = 4)
    ##--------- RF: split data into train, validation, and test data--------
    print("RF")
    set.seed(seed)
