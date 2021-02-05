@@ -3,6 +3,7 @@ library(raster)
 library(sf)
 library(car)  # for running slr
 library(GWmodel)  #gwr
+library(viridis)  #palette for raster
 library(ranger) # Random forests
 library(caret)  #data partition
 library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
@@ -37,43 +38,45 @@ subset_df_yrs <- function(obs_df, yr_target){
 }
 #o# multiple years
 
-names <- paste0('run1_train_', c('2010', '09-11', '08-12'))
-years <- list(2010, 2009:2011, 2008:2012)
+# names <- paste0('run1_train_', c('2010', '09-11', '08-12'))
+# years <- list(2010, 2009:2011, 2008:2012)
+names <- paste0('run1_train_', 2008:2012)
+years <- as.list(seq(2008, 2012))
 for(i in seq_along(names)){
    csv_name <- names[i]
+   print(csv_name)
    no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[i]])
    data_all <- no2_e_09_11
    #f# subset cross-validation data (5-fold cross-validation)
    #f# stratified by station types, climate zones and/or years
    set.seed(seed)
    data_all$index <- 1:nrow(data_all)
-   # train_sub <- stratified(data_all, c('type_of_st', 'climate_zone'), 0.8)
-   # test_sub <- data_all[-train_sub$index, ]
+   train_sub <- stratified(data_all, c('type_of_st', 'climate_zone'), 0.8)
+   test_sub <- data_all[-train_sub$index, ]
    
    # Test only leave location out first 
    # Method 1: (easier to use)
-   folds=CreateSpacetimeFolds(
-      data_all,
-      spacevar = "station_european_code",     # leave location out
-      timevar = NA,
-      k = 5,
-      class = NA,
-      seed = seed
-   )
+   # folds=CreateSpacetimeFolds(
+   #    data_all,
+   #    spacevar = "station_european_code",     # leave location out
+   #    timevar = NA,
+   #    k = 5,
+   #    class = NA,
+   #    seed = seed
+   # )
    # Method 2:
    # all_stations <- unique(data_all$station_european_code)
    # #we create cross validation folds using caret's createFolds
    # num_folds <- 5
    # set.seed(seed)  # for reproducibility
    # folds <- createFolds(all_stations,k=num_folds,list=TRUE,returnTrain=TRUE)
-   
-   train_sub <- data_all[folds$index[[1]], ]
-   test_sub <- data_all[folds$indexOut[[1]], ]
-   
+   # train_sub <- data_all[folds$index[[1]], ]
+   # test_sub <- data_all[folds$indexOut[[1]], ]
    # Check whether the stratification works
    all(unique(train_sub$station_european_code)%in%unique(test_sub$station_european_code))
    all_sub <- rbind(train_sub %>% mutate(df_type='train'), 
                     test_sub %>% mutate(df_type='test'))
+   
    all_sp <- SpatialPointsDataFrame(coords = cbind(all_sub$Xcoord, all_sub$Ycoord),
                                       all_sub, proj4string = local_crs)
    tmap_mode('plot')
@@ -89,10 +92,11 @@ for(i in seq_along(names)){
       map_1
    })
    do.call(tmap_arrange, maps_l)
-   plot(train_sp)
    
    sum(train_sub$type_of_st=="Background"&train_sub$climate_zone==1)/nrow(train_sub)
    sum(test_sub$type_of_st=="Background"&test_sub$climate_zone==1)/nrow(test_sub)
+   sum(train_sub$type_of_st=="Background")/nrow(train_sub)
+   sum(test_sub$type_of_st=="Background")/nrow(test_sub)
    # Check whether every station serve as the same type of data over years
    any(unique(train_sub$station_european_code)%in%unique(test_sub$station_european_code))
    # --> yes indeed the stations are not the same in training and test data
@@ -103,7 +107,7 @@ for(i in seq_along(names)){
    source("scr/fun_slr_proc_in_data.R")
    train_sub <- proc_in_data(train_sub, neg_pred)
    test_sub <- proc_in_data(test_sub, neg_pred)
-   
+   #------------------Above code is needed for all algorithms----------------------
    #---------#f# SLR: train SLR -----------
    source("scr/fun_slr.R")
    slr_result <- slr(train_sub$obs, train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame(), 
@@ -113,13 +117,14 @@ for(i in seq_along(names)){
    source("scr/fun_output_slr_result.R")
    slr_poll <- output_slr_result(slr_model, test_df = test_sub, train_df = train_sub,
                                  output_filename = csv_name, obs_varname = 'obs')
-   slr_poll$eval_train
-   slr_poll$eval_test
+   slr_poll$eval_train %>% print()
+   slr_poll$eval_test %>% print()
    slr_df <- slr_poll[[1]]
    
    #f# SLR: perform cross-validation
    
    #-----------#f# GWR: train GWR----------
+   print("GWR")
    source("scr/fun_setupt_gwr.R")
    setup <- setup_gwr(train_sub, eu_bnd, 
                       cellsize = 200000, local_crs = local_crs)
@@ -128,17 +133,23 @@ for(i in seq_along(names)){
    DM <- setup[[3]]
    source("scr/fun_calibr_gwr.R")
    nngb <- calibr_gwr(sp_train, csv_name)
-   nngb
+   nngb %>% print()
    source("scr/fun_gwr.R")
    gwr_model <- gwr(sp_train, grd, DM, nngb, csv_name)
    #f# GWR: perform cross-validation
    source("scr/fun_output_gwr_result.R")
    gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, local_crs,
                                output_filename = csv_name)
-   error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr'])
-   error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr'])
-   
+   error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr']) %>% 
+      print()
+   error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr']) %>% 
+      print()
+   # plot gwr surface
+   ncol(gwr_model$SDF)  # the number of predictors selected
+   source('scr/fun_plot_gwr_coef.R')
+   plot_gwr_coef(i, n_row = 2, n_col = 4)
    ##--------- RF: split data into train, validation, and test data--------
+   print("RF")
    set.seed(seed)
    # index <- partition(data_all$country_code, p=c(train=0.6, valid=0.2, test=0.2))
    # train_df <- data_all[index$train, ]
@@ -181,8 +192,8 @@ for(i in seq_along(names)){
                        y_varname='obs', 
                        x_varname = x_varname,
                        csv_name, hyper_grid)
-   rf_result$eval_train
-   rf_result$eval_test
+   rf_result$eval_train %>% print()
+   rf_result$eval_test %>% print()
    source("scr/fun_plot_rf_vi.R")
    plot_rf_vi(csv_name, var_no = 10)
    #f# RF: perform cross-validation
