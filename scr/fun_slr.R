@@ -1350,10 +1350,11 @@ slr <- function(POLL, pred, cv_n=1){
    for(j in (dim(Final)[2]-1):1){  
       if(max(vif(lastmodel))>=3){
          b <- max(vif(lastmodel))
+         for (i in 1:j){
+            if(vif(lastmodel)[i]==b){
+               Final <- Final[c(-(i+1))]}}  # debug: because not all models will have predictors with VIF larger than 3
       }
-      for (i in 1:j){
-         if(vif(lastmodel)[i]==b){
-            Final <- Final[c(-(i+1))]}}
+      
       lastmodel <- lm(Final~., data=Final)
    }
    
