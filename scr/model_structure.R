@@ -40,8 +40,8 @@ subset_df_yrs <- function(obs_df, yr_target){
 
 # names <- paste0('run1_train_', c('2010', '09-11', '08-12'))
 # years <- list(2010, 2009:2011, 2008:2012)
-csv_names <- paste0('run1_train_', 2008:2012)
-years <- as.list(seq(2008, 2012))
+csv_names <- paste0('run1_train_', c(2002, 2004, 2006))   #2008:2012
+years <- as.list(c(2002, 2004, 2006))
 for(i in seq_along(csv_names)){
    csv_name <- csv_names[i]
    print(csv_name)
