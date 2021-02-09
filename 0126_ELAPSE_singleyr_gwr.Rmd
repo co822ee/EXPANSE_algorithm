@@ -1,0 +1,245 @@
+---
+title: "Discussion_single year (ELAPSE) GWR test"
+author: "Youchen"
+date: "01/26/2021"
+output:
+  slidy_presentation: default
+  ioslides_presentation: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, fig.width = 6, fig.height = 6, warning=F)
+library(dplyr)
+library(raster)
+library(sf)
+library(car)  # for running slr
+library(GWmodel)  #gwr
+library(ranger) # Random forests
+library(caret)  #data partition
+library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
+library(splitTools)
+library(APMtools)
+library(tidyr)
+library(viridis)
+library(MASS)
+library(tmap)
+library(tiff)
+```
+```{r read data}
+eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
+
+```
+
+
+
+# Location
+
+```{r}
+# csv_name <- 'run1_train_2010'
+kernels <- c("gaussian", "exponential", "bisquare","tricube","boxcar")
+csv_names <- paste0('testGWR_', kernels, "_2010")
+years <- as.list(rep(2010, length(names)))
+
+
+gwr_df <- lapply(paste0('data/workingData/GWR_result_all_', csv_names, '.csv'), read.csv)
+
+```
+
+
+The datasets were randomly divided into training and test data, using 'type_of_st', 'year', and 'climate_zone' as stratification.
+
+
+```{r fig.height=6, fig.width=10}
+tmap_mode('plot')
+
+local_crs <- CRS("+init=EPSG:3035")
+df_1=gwr_df[[1]]
+sp_p <- SpatialPointsDataFrame(df_1, coords = cbind(df_1$Xcoord, df_1$Ycoord), proj4string = local_crs) 
+
+map_1 <- tm_shape(sp_p) +
+   tm_dots(size = 0.05, col="df_type",   # col = "NO2",          # popup.vars for showing values
+           title = paste0('region'),
+           palette=c('red','blue'))+
+   tm_shape(eu_bnd)+
+   tm_borders()+
+   tm_layout(title=csv_names[[1]])
+map_1
+```
+
+
+
+# Performance matrix
+* Supervised Linear regression (SLR)
+* Geographically weighted regression (GWR)
+* Random forests (RF)
+
+Training data was used for training the models using these three algorithms. Then the test data was used for evaluating model performance.
+
+```{r}
+show_EM <- function(gwr, scenario='all'){
+   gwr <- gwr[gwr$df_type==scenario, ]
+   error_matrix(gwr$obs, gwr$gwr)[c(1,5,7)]
+}
+
+tmp <- lapply(gwr_df, show_EM, scenario='test')
+em <- do.call(rbind, tmp)
+row.names(em) <- kernels
+print("test")
+print(em)
+```
+```{r}
+tmp <- lapply(gwr_df, show_EM, scenario='train')
+em <- do.call(rbind, tmp)
+row.names(em) <- kernels
+print("train")
+print(em)
+```
+
+# Coefficient surface from SLR
+
+```{r}
+read.csv("data/workingData/SLR_summary_model_run1_train_2010.csv")
+```
+
+
+
+# Coefficient surface from GWR
+
+* Cell size: 20 km
+
+```{r}
+nngbs <- (lapply(paste0("data/workingData/GWR_nngb_", csv_names, ".txt"), read.table) %>% Reduce(rbind,.))[,1]
+data.frame(nngb=nngbs, model=csv_names) %>% print
+```
+
+# Coefficient surface from GWR
+
+* Cell size: 20 km
+
+```{r}
+show_gwr_coef <- function(i){
+   
+   grid::grid.raster( tiff::readTIFF(paste0("graph/gwr_coef/", csv_names[i],".tiff")) )
+}
+print(kernels[1])
+show_gwr_coef(1)
+```
+
+# Coefficient surface from GWR
+
+* Cell size: 20 km
+
+```{r}
+print(kernels[2])
+show_gwr_coef(2)
+```
+
+# Coefficient surface from GWR
+
+* Cell size: 20 km
+
+```{r}
+print(kernels[3])
+show_gwr_coef(3)
+```
+
+# Coefficient surface from GWR
+
+* Cell size: 20 km
+
+```{r}
+print(kernels[4])
+show_gwr_coef(4)
+```
+
+# Coefficient surface from GWR
+
+* Cell size: 20 km
+
+```{r}
+print(kernels[5])
+show_gwr_coef(5)
+```
+
+
+
+# Scatterplots
+
+Observations vs. predictions
+
+```{r}
+create_df <- function(gwr_i, gwr, scenario){
+   gwr_df <- gwr[[gwr_i]]
+   gwr_df <- gwr_df[gwr_df$df_type==scenario, ]
+   gwr_df <- gwr_df[, c('obs','station_european_code', 'country_code','year','type_of_st','REGION', 'gwr')]
+   gwr_df$kernel <- kernels[gwr_i]
+   gwr_df
+   
+}
+```
+
+```{r}
+default.setting <- list(geom_abline(intercept = 0, slope=1), lims(x=c(-10,120), y=c(-10,120)))
+
+```
+
+```{r}
+get_density <- function(x, y, ...) {
+  dens <- MASS::kde2d(x, y, ...)
+  ix <- findInterval(x, dens$x)
+  iy <- findInterval(y, dens$y)
+  ii <- cbind(ix, iy)
+  return(dens$z[ii])
+}
+```
+
+
+```{r, fig.width = 6, fig.height = 3}
+df_3 <- lapply(seq_along(gwr_df), create_df, gwr = gwr_df, scenario = 'test')
+df_3 <- do.call(rbind, df_3)
+
+df_3 <- df_3 %>% mutate_if(is.character, as.factor)
+df_p <- df_3 %>% group_by(kernel) %>% mutate(density = get_density(obs, gwr))
+p1 <- ggplot(df_p)+
+   geom_point(aes(gwr, obs, color=density))+
+   # geom_bin2d()+
+   facet_grid(.~kernel)+
+   default.setting+
+   # labs(title=strsplit(csv_names[i],'_')[[1]][3])+
+   scale_color_viridis()+
+   theme(legend.position = "none")
+p1
+
+```
+
+By regions:
+
+```{r}
+p1 <- ggplot(df_p)+
+   geom_point(aes(gwr, obs, color=density))+
+   # geom_bin2d()+
+   facet_grid(REGION~kernel)+
+   default.setting+
+   # labs(title=strsplit(csv_names[i],'_')[[1]][3])+
+   scale_color_viridis()+
+   theme(legend.position = "none")
+p1
+
+```
+
+By station types
+
+```{r, fig.width = 6, fig.height = 3}
+p1 <- ggplot(df_p)+
+   geom_point(aes(gwr, obs, color=density))+
+   # geom_bin2d()+
+   facet_grid(type_of_st~kernel)+
+   default.setting+
+   # labs(title=strsplit(csv_names[i],'_')[[1]][3])+
+   scale_color_viridis()+
+   theme(legend.position = "none")
+p1
+
+```
+
+
