@@ -162,13 +162,13 @@ for(i in seq_along(names)){
    test_df <- test_sub
    x_varname = names(data_all %>% dplyr::select(matches(pred_c)))
    # LLO CV (small test for multiple years)
-   indices <- CreateSpacetimeFolds(data_all,spacevar = "station_european_code",
-                                   k=3, seed=seed)
-   model_LLO <- train(data_all[,x_varname],data_all$obs,
-                      method="rf",tuneGrid=data.frame("mtry"=80), importance=TRUE,
-                      trControl=trainControl(method="cv",
-                                             index = indices$index))
-   model_LLO
+   # indices <- CreateSpacetimeFolds(data_all,spacevar = "station_european_code",
+   #                                 k=3, seed=seed)
+   # model_LLO <- train(data_all[,x_varname],data_all$obs,
+   #                    method="rf",tuneGrid=data.frame("mtry"=80), importance=TRUE,
+   #                    trControl=trainControl(method="cv",
+   #                                           index = indices$index))
+   # model_LLO
    # --> Rsquared 0.5720142 (for 2009-2011) so indeed the previous good performance 
    #     is due to the information leakage ("mtry"=14)
    # seq(30, length(x_varname), by=10) --> best mtry = 110
