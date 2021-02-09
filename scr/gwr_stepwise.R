@@ -83,5 +83,6 @@ x_varnames = names(data_all %>% dplyr::select(matches(pred_c)))
 #           kernel='exponential')
 DeVar = "obs"
 InDeVars = x_varnames
+#14:49 run the model
 gwr_model_s <- model.selection.gwr(DeVar, InDeVars, data = sp_train, 
                                    bw=48, adaptive = T, kernel = "exponential", dMat = DM_1)
