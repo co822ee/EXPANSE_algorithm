@@ -36,17 +36,18 @@ eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
 
 ```{r}
 # csv_name <- 'run1_train_2010'
-csv_names <- paste0('run1_train_', 2008:2012)
-years <- as.list(seq(2008, 2012))
+csv_names_slr <- paste0('run1_train_nobreak_xy', c(2002, 2004, 2006, 2008:2012))  #run1_train_nobreak_noxy run1_train_nobreak_xy     run1_train_break_xy      
+csv_names <- paste0('run1_train_', c(2002, 2004, 2006, 2008:2012))
+years <- as.list(c(2002, 2004, 2006, seq(2008, 2012)))
 
 
-slr <- lapply(paste0('data/workingData/SLR_result_all_', csv_names, '.csv'), read.csv)
-gwr_df <- lapply(paste0('data/workingData/GWR_result_all_', csv_names, '.csv'), read.csv)
+slr <- lapply(paste0('data/workingData/SLR_result_all_', csv_names_slr, '.csv'), read.csv)
+gwr_df <- lapply(paste0('data/workingData/GWR_result_all_', csv_names_slr, '.csv'), read.csv)
 rf <- lapply(paste0('data/workingData/RF_result_all_', csv_names, '.csv'), read.csv)
 ```
 
 
-The datasets were randomly divided into training and test data, using 'type_of_st', 'year', and 'climate_zone' as stratification.
+The datasets were randomly divided into training and test data, using 'type_of_st' and 'climate_zone' as stratification.
 
 
 ```{r fig.height=6, fig.width=10}
@@ -69,6 +70,25 @@ maps_l <- lapply(seq_along(EU_sp), function(sp_i){
 do.call(tmap_arrange, maps_l)
 ```
 
+# predictor
+* Supervised Linear regression (SLR)
+* Geographically weighted regression (GWR)
+* Random forests (RF)
+
+SLR and GWR:
+
+```{r}
+source("scr/fun_call_predictor.R")
+pred_c_rf <- c(pred_c, "x_trun", "y_trun")
+print(pred_c)
+```
+
+RF:
+
+```{r}
+print(pred_c_rf)
+```
+
 
 
 # Performance matrix
@@ -77,6 +97,8 @@ do.call(tmap_arrange, maps_l)
 * Random forests (RF)
 
 Training data was used for training the models using these three algorithms. Then the test data was used for evaluating model performance.
+
+## Test
 
 ```{r}
 show_EM <- function(slr, gwr, rf, scenario='all'){
@@ -94,11 +116,22 @@ show_EM <- function(slr, gwr, rf, scenario='all'){
    }
 }
 for(i in seq_along(csv_names)){
-   print(csv_names[i])
+   print(csv_names_slr[i])
    show_EM(slr[[i]], gwr_df[[i]], rf[[i]], 'test')
 }
 
 ```
+
+## Train
+
+```{r}
+for(i in seq_along(csv_names)){
+   print(csv_names_slr[i])
+   show_EM(slr[[i]], gwr_df[[i]], rf[[i]], 'train')
+}
+
+```
+
 
 # Scatterplots
 
@@ -200,16 +233,16 @@ for(i in seq_along(csv_names)){
 * Exponential adaptive kernel function
 
 ```{r}
-nngbs <- (lapply(paste0("data/workingData/GWR_nngb_", csv_names, ".txt"), read.table) %>% Reduce(rbind,.))[,1]
-data.frame(nngb=nngbs, model=csv_names) %>% print
+nngbs <- (lapply(paste0("data/workingData/GWR_nngb_", csv_names_slr, ".txt"), read.table) %>% Reduce(rbind,.))[,1]
+data.frame(nngb=nngbs, model=csv_names_slr) %>% print
 ```
 
 ```{r}
 show_gwr_coef <- function(i){
    
-   grid::grid.raster( tiff::readTIFF(paste0("graph/gwr_coef/", csv_names[i],".tiff")) )
+   grid::grid.raster( tiff::readTIFF(paste0("graph/gwr_coef/", csv_names_slr[i],".tiff")) )
 }
-print(csv_names[1])
+print(csv_names_slr[1])
 show_gwr_coef(1)
 ```
 
@@ -219,7 +252,7 @@ show_gwr_coef(1)
 * Exponential adaptive kernel function
 
 ```{r}
-print(csv_names[2])
+print(csv_names_slr[2])
 show_gwr_coef(2)
 ```
 
@@ -229,7 +262,7 @@ show_gwr_coef(2)
 * Exponential adaptive kernel function
 
 ```{r}
-print(csv_names[3])
+print(csv_names_slr[3])
 show_gwr_coef(3)
 ```
 
@@ -239,7 +272,7 @@ show_gwr_coef(3)
 * Exponential adaptive kernel function
 
 ```{r}
-print(csv_names[4])
+print(csv_names_slr[4])
 show_gwr_coef(4)
 ```
 
@@ -249,8 +282,38 @@ show_gwr_coef(4)
 * Exponential adaptive kernel function
 
 ```{r}
-print(csv_names[5])
+print(csv_names_slr[5])
 show_gwr_coef(5)
+```
+
+# Coefficient surface from GWR
+
+* Cell size: 20 km
+* Exponential adaptive kernel function
+
+```{r}
+print(csv_names_slr[6])
+show_gwr_coef(6)
+```
+
+# Coefficient surface from GWR
+
+* Cell size: 20 km
+* Exponential adaptive kernel function
+
+```{r}
+print(csv_names_slr[7])
+show_gwr_coef(7)
+```
+
+# Coefficient surface from GWR
+
+* Cell size: 20 km
+* Exponential adaptive kernel function
+
+```{r}
+print(csv_names_slr[8])
+show_gwr_coef(8)
 ```
 
 
