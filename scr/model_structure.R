@@ -40,13 +40,14 @@ subset_df_yrs <- function(obs_df, yr_target){
 
 # names <- paste0('run1_train_', c('2010', '09-11', '08-12'))
 # years <- list(2010, 2009:2011, 2008:2012)
-csv_names <- paste0('run1_train_', c(2002, 2004, 2006))   #2008:2012
-years <- as.list(c(2002, 2004, 2006))
+csv_names <- paste0('run1_train_', c(2002, 2004, 2006, 2008:2012))   #2008:2012
+years <- as.list(c(2002, 2004, 2006, 2008:2012))
 for(i in seq_along(csv_names)){
    csv_name <- csv_names[i]
    print(csv_name)
    no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[i]])
    data_all <- no2_e_09_11
+   print(paste0("year: ", unique(no2_e_09_11$year)))
    #f# subset cross-validation data (5-fold cross-validation)
    #f# stratified by station types, climate zones and/or years
    set.seed(seed)
@@ -160,7 +161,8 @@ for(i in seq_along(csv_names)){
    # test_df <- data_all[index$test, ]
    train_df <- train_sub
    test_df <- test_sub
-   x_varname = names(data_all %>% dplyr::select(matches(pred_c)))
+   pred_c_rf <- c(pred_c, "x_trun", "y_trun")
+   x_varname = names(data_all %>% dplyr::select(matches(pred_c_rf)))
    # LLO CV (small test for multiple years)
    # indices <- CreateSpacetimeFolds(data_all,spacevar = "station_european_code",
    #                                 k=3, seed=seed)
