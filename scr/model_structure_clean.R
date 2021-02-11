@@ -22,9 +22,9 @@ elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_clim
 ## Read in data (airbase observations 1990s-2012)
 no2 <- read.csv("../airbase/EXPANSE_APM/data/processed/ab_v8_yr_no2.csv")
 # rename data
-elapse_no2 <- rename(elapse_no2, station_european_code=ï..Station)
+elapse_no2 <- dplyr::rename(elapse_no2, station_european_code=ï..Station)
 # reduce airbase data
-no2 <- no2 %>% rename(year=statistics_year, obs=statistic_value)
+no2 <- no2 %>% dplyr::rename(year=statistics_year, obs=statistic_value)
 ## subset stations that are included in the elapse (cause at this stage, we don't have the predictor maps...)
 no2_e <- no2 %>% filter(no2$station_european_code%in%unique(elapse_no2$station_european_code))
 no2_e_all <- left_join(no2_e, elapse_no2, by="station_european_code")
