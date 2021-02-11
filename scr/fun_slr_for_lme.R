@@ -87,6 +87,9 @@ slr_lme <- function(POLL, pred, stations, years, cv_n=1){
          models$namesbestmodel[[1]]
          models$R2bestmodel[[1]]
          # models$summarybestmodel[[1]]$coefficients[(modeln+1),4]<0.1    #P-value
+         # Use only fixed effect to calculate R2
+         summary(lm(POLL~pred[,models$indexbestmodel[[1]]]) )$coefficients[(modeln+1),4]<0.1    #P-value
+         
          # 
          # summary(lmer(POLL~pred[,models$indexbestmodel[[modeln]]] + (1|stations) + (1|years)))$coefficients
          # lmer(POLL~pred[,models$indexbestmodel[[modeln]]] + (1|stations) + (1|years)) %>% anova
@@ -172,6 +175,9 @@ slr_lme <- function(POLL, pred, stations, years, cv_n=1){
          models$R2bestmodel[[modeln-1]]
          models$R2bestmodel[[modeln]]
          # models$summarybestmodel[[modeln]]$coefficients[(modeln+1),4]<0.1 #p-value is not available, only t-value and std. error
+         data_df = cbind(POLL, pred_df)
+         eq_lm <- as.formula(paste0('POLL~.'))
+         summary(lm(eq_lm, data=data_df))$coefficients[(modeln+1),4]<0.1 #p-value is not available, only t-value and std. error
          modeln <- modeln+1
          
       }
@@ -223,7 +229,7 @@ slr_lme <- function(POLL, pred, stations, years, cv_n=1){
                Final <- Final[c(-(i+1))]}
          }
       }
-
+      
       lastmodel_slr <- lm(Final~., data=Final)
    }
    
