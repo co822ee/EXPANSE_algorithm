@@ -25,12 +25,30 @@ slr_lme <- function(POLL, pred, stations, cv_n=1){
    
    for (i in nfirstvar:nlastvar){
       if (is.numeric(pred[,i])==TRUE){
-         # modeltry2<-lmer(POLL~pred[,i] + (1|stations))
+         i=1
+         j=4
+         names(pred)[i]
+         names(pred)[j]
+         modeltry2<-lmer(POLL~pred[,i] + (1|stations))
+         modeltry2j<-lmer(POLL~pred[,j] + (1|stations))
+         modeltry2
+         modeltry2j
+         performance(modeltry2)
+         performance(modeltry2j)
+         
+         
+         modeltry<-lm(POLL~pred[,i])
+         modeltryj<-lm(POLL~pred[,j])
+         performance(modeltry)
+         performance(modeltryj)
+         #------------
+         names(pred)[i]
+         modeltry2<-lmer(POLL~pred[,i] + (1|stations))
          # modeltry2
-         # r2(modeltry2)
+         performance(modeltry2)
          # r.squaredGLMM(modeltry2)
          modeltry<-lm(POLL~pred[,i])
-         # r2(modeltry)
+         performance(modeltry)
          # 
          R2<-rbind(R2,summary(modeltry)$adj.r.squared)#adjusted R2
          #the new covariate is supposed to be in the last row, therefore I can select the row based on the model number +1
