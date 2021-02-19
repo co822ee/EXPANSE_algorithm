@@ -1,4 +1,4 @@
-plot_gwr_coef <- function(csv_i, n_row, n_col){
+plot_gwr_coef <- function(csv_i, gwr_model, csv_name, n_row, n_col){
    # nngbs <- (lapply(paste0("data/workingData/GWR_nngb_", names, ".txt"), read.table) %>% Reduce(rbind,.))[,1]
    # source("scr/fun_setupt_gwr.R")
    # setup <- setup_gwr(train_sub, eu_bnd, 
@@ -24,7 +24,7 @@ plot_gwr_coef <- function(csv_i, n_row, n_col){
          tm_layout(legend.title.size = 1, legend.text.size = 0.8, 
                    legend.text.color = 'yellow', 
                    title = names(raster(gwr_model$SDF[plot_i])),
-                   title.color = 'yellow')
+                   title.color = 'black')
    }
    gwr_plot$nrow <- n_row
    gwr_plot$ncol <- n_col
@@ -32,7 +32,7 @@ plot_gwr_coef <- function(csv_i, n_row, n_col){
    mergeMap <- do.call(tmap_arrange, gwr_plot)
    if(!dir.exists("graph/gwr_coef/")) dir.create("graph/gwr_coef/")
    tmap_save(mergeMap, filename = paste0('graph/gwr_coef/', csv_name, ".tiff"), 
-             dpi=600, height=10, width=10, units='in')
+             dpi=100, height=10, width=10, units='in')
    print(paste0('output graph/gwr_coef/', csv_name, ".tiff"))
 }
 
