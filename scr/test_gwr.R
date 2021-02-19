@@ -9,12 +9,14 @@ library(GWmodel)  #gwr
 library(viridis)  #palette for raster
 library(ranger) # Random forests
 library(caret)  #data partition
+library(tmap)
 library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
 library(splitTools)
 library(APMtools)
 library(lme4) # linear mixed effect models
 library(CAST) # For dividing training and test data (CreateSpacetimeFolds)
 library(performance) #extract model performance matrix for lme
+
 seed <- 123
 local_crs <- CRS("+init=EPSG:3035")
 
@@ -41,6 +43,171 @@ subset_df_yrs <- function(obs_df, yr_target){
 }
 #o# multiple years
 
+#---------Test the bandwidth----------
+
+library(doParallel)
+library(foreach)
+cl <- parallel::makeCluster(5)
+doParallel::registerDoParallel(cl)
+foreach(i=seq_along(bandwidths)) %dopar% {
+   library(dplyr)
+   library(raster)
+   library(sf)
+   library(car)  # for running slr
+   library(GWmodel)  #gwr
+   library(viridis)  #palette for raster
+   library(ranger) # Random forests
+   library(caret)  #data partition
+   library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
+   library(splitTools)
+   library(APMtools)
+   library(lme4) # linear mixed effect models
+   library(CAST) # For dividing training and test data (CreateSpacetimeFolds)
+   library(performance) #extract model performance matrix for lme
+   library(tmap)
+   seed <- 123
+   local_crs <- CRS("+init=EPSG:3035")
+   
+   eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
+   ## Read in data (elapse NO2 2010 with climate zones included)
+   elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
+                          encoding = "utf-8")
+   ## Read in data (airbase observations 1990s-2012)
+   no2 <- read.csv("../airbase/EXPANSE_APM/data/processed/ab_v8_yr_no2.csv")
+   # rename data
+   elapse_no2 <- rename(elapse_no2, station_european_code=ï..Station)
+   # reduce airbase data
+   no2 <- no2 %>% rename(year=statistics_year, obs=statistic_value)
+   ## subset stations that are included in the elapse (cause at this stage, we don't have the predictor maps...)
+   no2_e <- no2 %>% filter(no2$station_european_code%in%unique(elapse_no2$station_european_code))
+   no2_e_all <- left_join(no2_e, elapse_no2, by="station_european_code")
+
+   ## subset samples (for multiple years or each year)
+   subset_df_yrs <- function(obs_df, yr_target){
+      no2_e_sub <- obs_df %>% filter(year%in%yr_target)
+      no2_e_sub
+   }
+   #o# multiple years
+   
+   #---------Test the bandwidth----------
+   # Test the kernel function:
+   regression_grd_cellsize <- c(80, 100, 200, 600, 1000, 1500, 2000)   #km
+   reg_grdsize <- regression_grd_cellsize*1000
+   year_target <- 2009
+   csv_names <- paste0('testGWR_', regression_grd_cellsize, "_", year_target)
+   years <- as.list(rep(year_target, length(csv_names)))
+   
+   
+   csv_name <- csv_names[i]
+   print(csv_name)
+   no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[i]])
+   data_all <- no2_e_09_11
+   
+   #f# stratified by station types, climate zones and/or years
+   set.seed(seed)
+   data_all$index <- 1:nrow(data_all)
+   train_sub <- stratified(data_all, c('type_of_st', 'climate_zone'), 0.8)
+   test_sub <- data_all[-train_sub$index, ]
+   
+   all(unique(train_sub$station_european_code)%in%unique(test_sub$station_european_code))
+   all_sub <- rbind(train_sub %>% mutate(df_type='train'), 
+                    test_sub %>% mutate(df_type='test'))
+   
+   all_sp <- SpatialPointsDataFrame(coords = cbind(all_sub$Xcoord, all_sub$Ycoord),
+                                    all_sub, proj4string = local_crs)
+   
+   
+   sum(train_sub$type_of_st=="Background"&train_sub$climate_zone==1)/nrow(train_sub)
+   sum(test_sub$type_of_st=="Background"&test_sub$climate_zone==1)/nrow(test_sub)
+   sum(train_sub$type_of_st=="Background")/nrow(train_sub)
+   sum(test_sub$type_of_st=="Background")/nrow(test_sub)
+   # Check whether every station serve as the same type of data over years
+   any(unique(train_sub$station_european_code)%in%unique(test_sub$station_european_code))
+   # --> yes indeed the stations are not the same in training and test data
+   #TODO we need to look at the groups separately or in combined?
+   #f# SLR: select predictors
+   source("scr/fun_call_predictor.R")
+   #f# SLR: define/preprocess predictors (direction of effect)
+   source("scr/fun_slr_proc_in_data.R")
+   train_sub <- proc_in_data(train_sub, neg_pred)
+   test_sub <- proc_in_data(test_sub, neg_pred)
+   #------------------Above code is needed for all algorithms----------------------
+   #---------#f# SLR: train SLR -----------
+   
+   slr <- read.csv(paste0("data/workingData/SLR_summary_model_run1_train_break_noxy", year_target,".csv"))
+   slr_poll <- read.csv(paste0('data/workingData/SLR_result_all_run1_train_break_noxy', year_target,".csv"))
+   eq <- as.formula(paste0('obs~',  paste(slr$variables[-1], collapse = "+")))
+   error_matrix(slr_poll[slr_poll$df_type=='train', 'obs'], slr_poll[slr_poll$df_type=='train', 'slr']) %>% 
+      print()
+   error_matrix(slr_poll[slr_poll$df_type=='test', 'obs'], slr_poll[slr_poll$df_type=='test', 'slr']) %>% 
+      print()
+   
+   #f# SLR: perform cross-validation
+   
+   #-----------#f# GWR: train GWR----------
+   print("GWR")
+   source("scr/fun_setupt_gwr.R")
+   setup <- setup_gwr(train_sub, eu_bnd, 
+                      cellsize = reg_grdsize[i], local_crs = local_crs)
+   sp_train <- setup[[1]]
+   grd <- setup[[2]]
+   DM <- setup[[3]]
+   plot(grd)
+   # Calibrate bandwidth using CV
+   # The calibration is not influenced by the regression grid cell size
+   if(!file.exists(paste0("data/workingData/GWR_dist_", year_target, ".txt"))){
+      DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
+                      rp.locat=coordinates(sp_train))
+      # 
+      bandwidth_calibr <- bw.gwr(eq, data=sp_train, approach = "CV",
+                                 adaptive = F, dMat = DM_1)
+      write.table(bandwidth_calibr, paste0("data/workingData/GWR_dist_", year_target, ".txt"))
+   }
+   # nngb %>% print()
+   # source("scr/fun_gwr.R")
+   bandwidth_calibr <- read.table(paste0("data/workingData/GWR_dist_", year_target, ".txt"))[,1]
+   nngb <- read.table(paste0("data/workingData/GWR_nngb_run1_train_break_noxy", year_target,".txt"))[,1]
+
+   gwr_model <- gwr.basic(eq,
+                          data=sp_train, 
+                          regression.points=grd, 
+                          adaptive = F,
+                          bw=bandwidth_calibr,
+                          dMat=DM,
+                          kernel="exponential")
+   gwr_model_ad <- gwr.basic(eq,
+                             data=sp_train, 
+                             regression.points=grd, 
+                             adaptive = T,
+                             bw=nngb,
+                             dMat=DM,
+                             kernel="exponential")
+   #f# GWR: perform cross-validation
+   source("scr/fun_output_gwr_result.R")
+   gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, local_crs,
+                               output_filename = csv_name)
+   gwr_df_ad <- output_gwr_result(gwr_model_ad, train_sub, test_sub, local_crs,
+                               output_filename = paste0(csv_name, "_ad"))
+   error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr']) %>% 
+      print()
+   error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr']) %>% 
+      print()
+   error_matrix(gwr_df_ad[gwr_df_ad$df_type=='train', 'obs'], gwr_df_ad[gwr_df_ad$df_type=='train', 'gwr']) %>% 
+      print()
+   error_matrix(gwr_df_ad[gwr_df_ad$df_type=='test', 'obs'], gwr_df_ad[gwr_df_ad$df_type=='test', 'gwr']) %>% 
+      print()
+   # plot gwr surface
+   ncol(gwr_model$SDF) %>% print()  # the number of predictors selected
+   source('scr/fun_plot_gwr_coef.R')
+   plot_gwr_coef(i, gwr_model, csv_name = csv_name, 
+                 n_row = 2, n_col = 3)
+   plot_gwr_coef(i, gwr_model_ad, csv_name = paste0(csv_name, "_ad"), 
+                 n_row = 2, n_col = 3)
+}
+parallel::stopCluster(cl)
+
+
+#------------Test the kernel function:------------
 # names <- paste0('run1_train_', c('2010', '09-11', '08-12'))
 # years <- list(2010, 2009:2011, 2008:2012)
 kernels <- c("gaussian", "exponential", "bisquare","tricube","boxcar")
