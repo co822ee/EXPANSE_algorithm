@@ -45,9 +45,12 @@ subset_df_yrs <- function(obs_df, yr_target){
 #o# multiple years
 
 #---------Test the bandwidth----------
+global_vars <- "no2_10MACC"
+
 regression_grd_cellsize <- c(80, 100, 200, 600, 1000, 1500, 2000)   #km
 kernels <- c('gaussian', 'exponential', 'bisquare', 'tricube')
 year_target <- 2009
+
 comb <- expand.grid(regression_grd_cellsize=regression_grd_cellsize, kernel_type=kernels) %>% 
    mutate(csv_name = paste0('testGWR_', regression_grd_cellsize, '_', kernel_type, '_', year_target))
 # perf_matrix <- data.frame(RMSE=0, RRMSE=0, IQR=0, rIQR=0, MAE=0, rMAE=0, rsq=0, explained_var=0,
@@ -176,14 +179,27 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
       write.table(bandwidth_calibr, paste0("data/workingData/GWR_dist_", 
                                            kernel_type[i], "_", years[[i]], ".txt"))
    }
+   
+   if(!file.exists(paste0("data/workingData/GWR_nngb_", 
+                          kernel_type[i], "_", years[[i]], ".txt"))){
+      DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
+                      rp.locat=coordinates(sp_train))
+      # 
+      nngb <- bw.gwr(eq, data=sp_train, approach = "CV", kernel = kernel_type[i],
+                                 adaptive = T, dMat = DM_1)
+      write.table(nngb, paste0("data/workingData/GWR_nngb_", 
+                                           kernel_type[i], "_", years[[i]], ".txt"))
+   }
+   
    # nngb %>% print()
    # source("scr/fun_gwr.R")
    bandwidth_calibr <- read.table(paste0("data/workingData/GWR_dist_", 
                                          kernel_type[i], "_", years[[i]], ".txt"))[,1]
-   nngb <- read.table(paste0("data/workingData/GWR_nngb_run1_train_break_noxy", 
-                             years[[i]],".txt"))[,1]
+   # nngb <- read.table(paste0("data/workingData/GWR_nngb_run1_train_break_noxy", 
+   #                           years[[i]],".txt"))[,1]
    
-   
+   nngb <- read.table(paste0("data/workingData/GWR_nngb_", 
+                             kernel_type[i], "_", years[[i]], ".txt"))[,1]
    gwr_model <- tryCatch(gwr.basic(eq,
                                    data=sp_train,
                                    regression.points=grd,
@@ -286,6 +302,26 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
 }
 parallel::stopCluster(cl)
 
+
+perfm <- lapply(paste0('data/workingData/', list.files('data/workingData/', 'model_perf_')), 
+                function(filename) read.csv(filename, header=T) )
+perfm <- do.call(rbind, perfm)
+perfm <- perfm[!(duplicated(perfm$csv_name)&perfm$model=='slr'), ]
+perfm$reg_grdsize <- c(NA, lapply(perfm$csv_name[2:nrow(perfm)], function(f) strsplit(f, '_')[[1]][2]) %>% unlist() %>% as.numeric())
+perfm$kernel <- c(NA, lapply(perfm$csv_name[2:nrow(perfm)], function(f) strsplit(f, '_')[[1]][3]) %>% unlist() %>% as.character())
+perfm$adaptive <- c(NA, lapply(perfm$csv_name[2:nrow(perfm)], function(f){
+   ifelse((length(strsplit(f, '_')[[1]])>4)&(strsplit(f, '_')[[1]][5]=='ad'),
+          'adaptive bandwidth', 'fixed bandwidth')
+}) %>% unlist())
+perfm$global <- c(NA, lapply(perfm$csv_name[2:nrow(perfm)], function(f){
+   ifelse(((length(strsplit(f, '_')[[1]])==5)&(strsplit(f, '_')[[1]][5]=='mixed'))|
+             ((length(strsplit(f, '_')[[1]])==6)&(strsplit(f, '_')[[1]][6]=='mixed')),
+          paste0('global ', global_vars), paste0('local ', global_vars))
+}) %>% unlist())
+perfm %>% dplyr::filter(kernel=='exponential') %>% View
+perfm %>% dplyr::filter(kernel=='gaussian') %>% View
+
+read.csv(paste0("data/workingData/SLR_summary_model_run1_train_break_noxy", 2009,".csv"))
 
 #------------Test the kernel function:------------
 # names <- paste0('run1_train_', c('2010', '09-11', '08-12'))
