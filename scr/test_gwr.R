@@ -202,8 +202,8 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
                                       dMat=DM,
                                       kernel=kernel_type[i]),
                             error=function(e) T)
-   
-   if(!(typeof(gwr_model)=='logical')&(typeof(gwr_model_ad)=='logical')){
+   # error: inv(): matrix seems singular
+   if(!((typeof(gwr_model)=='logical')&(typeof(gwr_model_ad)=='logical'))){
       #f# GWR: perform cross-validation
       source("scr/fun_output_gwr_result.R")
       gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, local_crs,
