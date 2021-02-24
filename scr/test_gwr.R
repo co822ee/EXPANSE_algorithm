@@ -186,23 +186,24 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
                              years[[i]],".txt"))[,1]
    
    
-   tryCatch(gwr_model <- gwr.basic(eq,
+   gwr_model <- tryCatch(gwr.basic(eq,
                                    data=sp_train,
                                    regression.points=grd,
                                    adaptive = F,
                                    bw=bandwidth_calibr,
                                    dMat=DM,
                                    kernel=kernel_type[i]), 
-            error=function(e) paste0("gwr cannot be run for ", csv_name))
-   tryCatch(gwr_model_ad <- gwr.basic(eq,
+                         error=function(e) T)
+   gwr_model_ad <- tryCatch(gwr.basic(eq,
                                       data=sp_train,
                                       regression.points=grd,
                                       adaptive = T,
                                       bw=nngb,
                                       dMat=DM,
                                       kernel=kernel_type[i]),
-            error=function(e) paste0("gwr cannot be run for ", csv_name))
-   if("gwr_model_ad"%in%ls()&"gwr_model"%in%ls()){
+                            error=function(e) T)
+   
+   if(!(typeof(gwr_model)=='logical')&(typeof(gwr_model_ad)=='logical')){
       #f# GWR: perform cross-validation
       source("scr/fun_output_gwr_result.R")
       gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, local_crs,
@@ -246,7 +247,16 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
                     n_row = 2, n_col = 3, eu_bnd=eu_bnd)
       plot_gwr_coef(i, gwr_model_ad, csv_name = paste0(csv_name, "_ad"), 
                     n_row = 2, n_col = 3, eu_bnd=eu_bnd)
+   }else{
+      if(!file.exists('data/workingData/gwr_failed.txt')){
+         write.table(csv_name, "data/workingData/gwr_failed.txt",
+                     sep = ",", row.names = F)
+      }else{
+         write.table(csv_name, "data/workingData/gwr_failed.txt",
+                     sep = ",", row.names = F, col.names = F, append = T)
+      }
    }
+   
    
 }
 parallel::stopCluster(cl)
