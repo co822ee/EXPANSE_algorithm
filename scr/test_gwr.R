@@ -95,6 +95,8 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
       no2_e_sub
    }
    #o# multiple years
+   # Mixed GWR
+   global_vars <- "no2_10MACC"
    
    #---------Test the bandwidth----------
    # Test the kernel function:
@@ -149,11 +151,7 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
    slr <- read.csv(paste0("data/workingData/SLR_summary_model_run1_train_break_noxy", years[[i]],".csv"))
    slr_poll <- read.csv(paste0('data/workingData/SLR_result_all_run1_train_break_noxy', years[[i]],".csv"))
    eq <- as.formula(paste0('obs~',  paste(slr$variables[-1], collapse = "+")))
-   # error_matrix(slr_poll[slr_poll$df_type=='train', 'obs'], slr_poll[slr_poll$df_type=='train', 'slr']) %>% 
-   #    print()
-   # error_matrix(slr_poll[slr_poll$df_type=='test', 'obs'], slr_poll[slr_poll$df_type=='test', 'slr']) %>% 
-   #    print()
-   # 
+   
    #f# SLR: perform cross-validation
    
    #-----------#f# GWR: train GWR----------
@@ -202,22 +200,44 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
                                       dMat=DM,
                                       kernel=kernel_type[i]),
                             error=function(e) T)
+   # mixed GWR
+   # global_vars contain the variables that we want it to have gloabl coef values.
+   # intercept can also have a global value, instead of being locally varying
+   # (the bandwidth is used as the same when these global_vars are locally varying)
+   if(any(slr$variables[-1]%in%global_vars)){
+      gwr_model2 <- tryCatch(gwr.mixed(eq,
+                                      data=sp_train,
+                                      regression.points=grd,
+                                      fixed.vars = global_vars,
+                                      adaptive = F,
+                                      bw=bandwidth_calibr,
+                                      dMat=DM,
+                                      kernel=kernel_type[i]), 
+                            error=function(e) T)
+      gwr_model_ad2 <- tryCatch(gwr.mixed(eq,
+                                         data=sp_train,
+                                         regression.points=grd,
+                                         fixed.vars = global_vars,
+                                         adaptive = T,
+                                         bw=nngb,
+                                         dMat=DM,
+                                         kernel=kernel_type[i]),
+                               error=function(e) T)
+   }
+   
+   
    # error: inv(): matrix seems singular
-   if(!((typeof(gwr_model)=='logical')&(typeof(gwr_model_ad)=='logical'))){
+   if(!((typeof(gwr_model)=='logical')|(typeof(gwr_model_ad)=='logical'))){
       #f# GWR: perform cross-validation
       source("scr/fun_output_gwr_result.R")
       gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, local_crs,
                                   output_filename = csv_name)
       gwr_df_ad <- output_gwr_result(gwr_model_ad, train_sub, test_sub, local_crs,
                                      output_filename = paste0(csv_name, "_ad"))
-      # error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr']) %>% 
-      #    print()
-      # error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr']) %>% 
-      #    print()
-      # error_matrix(gwr_df_ad[gwr_df_ad$df_type=='train', 'obs'], gwr_df_ad[gwr_df_ad$df_type=='train', 'gwr']) %>% 
-      #    print()
-      # error_matrix(gwr_df_ad[gwr_df_ad$df_type=='test', 'obs'], gwr_df_ad[gwr_df_ad$df_type=='test', 'gwr']) %>% 
-      #    print()
+      gwr_df2 <- output_gwr_result(gwr_model2, train_sub, test_sub, local_crs,
+                                  output_filename = paste0(csv_name, '_mixed'), mixedGWR = T)
+      gwr_df_ad2 <- output_gwr_result(gwr_model_ad2, train_sub, test_sub, local_crs,
+                                     output_filename = paste0(csv_name, "_ad_mixed"), mixedGWR = T)
       # output all models' performance matrix
       output_em <- function(pred_df, csv_name, model, year){
          error_matrix(pred_df[pred_df$df_type=='train', 'obs'], pred_df[gwr_df$df_type=='train', 'gwr'])
@@ -232,10 +252,11 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
       # output_em(slr_poll, paste0('slr_', years[[i]]), 'slr', years[[i]])
       # output_em(gwr_df, csv_name, 'gwr', years[[i]])
       # output_em(gwr_df_ad, paste0(csv_name, '_ad'), 'gwr', years[[i]])
-      em <- rbind(output_em(slr_poll, paste0('slr_', years[[i]]), 'slr', years[[i]]),
+      em <- rbind(output_em(slr_poll, paste0('slr_', years[[i]]), 'slr', years[[i]]),   #slr model performance will be duplicated
                   output_em(gwr_df, csv_name, 'gwr', years[[i]]),
-                  output_em(gwr_df_ad, paste0(csv_name, '_ad'), 'gwr', years[[i]])
-      )
+                  output_em(gwr_df_ad, paste0(csv_name, '_ad'), 'gwr', years[[i]]),
+                  output_em(gwr_df2, paste0(csv_name, '_mixed'), 'gwr', years[[i]]),
+                  output_em(gwr_df_ad2, paste0(csv_name, '_ad_mixed'), 'gwr', years[[i]]))
       em <- em  %>% arrange(df_type)
       em
       write.csv(em, paste0('data/workingData/model_perf_', csv_name, '.csv'), row.names = F)
@@ -246,6 +267,10 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
       plot_gwr_coef(i, gwr_model, csv_name = csv_name, 
                     n_row = 2, n_col = 3, eu_bnd=eu_bnd)
       plot_gwr_coef(i, gwr_model_ad, csv_name = paste0(csv_name, "_ad"), 
+                    n_row = 2, n_col = 3, eu_bnd=eu_bnd)
+      plot_gwr_coef(i, gwr_model2, csv_name = paste0(csv_name, "_mixed"), 
+                    n_row = 2, n_col = 3, eu_bnd=eu_bnd)
+      plot_gwr_coef(i, gwr_model_ad2, csv_name = paste0(csv_name, "_ad_mixed"), 
                     n_row = 2, n_col = 3, eu_bnd=eu_bnd)
    }else{
       if(!file.exists('data/workingData/gwr_failed.txt')){
