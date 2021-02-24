@@ -1,6 +1,7 @@
 # This script is intended to test GWR models with different parameter settings
 # Bandwidth (adaptive or not)
-# kernel type
+# kernel type (just Gaussian and exponential)
+# regression grid cellsize
 library(dplyr)
 library(raster)
 library(sf)
@@ -44,12 +45,18 @@ subset_df_yrs <- function(obs_df, yr_target){
 #o# multiple years
 
 #---------Test the bandwidth----------
-
+regression_grd_cellsize <- c(80, 100, 200, 600, 1000, 1500, 2000)   #km
+kernels <- c('gaussian', 'exponential', 'bisquare', 'tricube')
+year_target <- 2009
+comb <- expand.grid(regression_grd_cellsize=regression_grd_cellsize, kernel_type=kernels) %>% 
+   mutate(csv_name = paste0('testGWR_', regression_grd_cellsize, '_', kernel_type, '_', year_target))
+# perf_matrix <- data.frame(RMSE=0, RRMSE=0, IQR=0, rIQR=0, MAE=0, rMAE=0, rsq=0, explained_var=0,
+#                           csv_name="0", datatype="0")
 library(doParallel)
 library(foreach)
 cl <- parallel::makeCluster(5)
 doParallel::registerDoParallel(cl)
-foreach(i=seq_along(bandwidths)) %dopar% {
+foreach(i=seq_len(nrow(comb))) %dopar% {
    library(dplyr)
    library(raster)
    library(sf)
@@ -92,9 +99,14 @@ foreach(i=seq_along(bandwidths)) %dopar% {
    #---------Test the bandwidth----------
    # Test the kernel function:
    regression_grd_cellsize <- c(80, 100, 200, 600, 1000, 1500, 2000)   #km
-   reg_grdsize <- regression_grd_cellsize*1000
+   kernels <- c('gaussian', 'exponential', 'bisquare', 'tricube')
    year_target <- 2009
-   csv_names <- paste0('testGWR_', regression_grd_cellsize, "_", year_target)
+   comb <- expand.grid(regression_grd_cellsize=regression_grd_cellsize, kernel_type=kernels) %>% 
+      mutate(csv_name = paste0('testGWR_', regression_grd_cellsize, '_', kernel_type, '_', year_target))
+   kernel_type <- comb$kernel_type %>% as.character()
+   reg_grdsize <- comb$regression_grd_cellsize*1000
+   csv_names <- comb$csv_name
+   # csv_names <- paste0('testGWR_', regression_grd_cellsize, "_", year_target)
    years <- as.list(rep(year_target, length(csv_names)))
    
    
@@ -134,17 +146,18 @@ foreach(i=seq_along(bandwidths)) %dopar% {
    #------------------Above code is needed for all algorithms----------------------
    #---------#f# SLR: train SLR -----------
    
-   slr <- read.csv(paste0("data/workingData/SLR_summary_model_run1_train_break_noxy", year_target,".csv"))
-   slr_poll <- read.csv(paste0('data/workingData/SLR_result_all_run1_train_break_noxy', year_target,".csv"))
+   slr <- read.csv(paste0("data/workingData/SLR_summary_model_run1_train_break_noxy", years[[i]],".csv"))
+   slr_poll <- read.csv(paste0('data/workingData/SLR_result_all_run1_train_break_noxy', years[[i]],".csv"))
    eq <- as.formula(paste0('obs~',  paste(slr$variables[-1], collapse = "+")))
-   error_matrix(slr_poll[slr_poll$df_type=='train', 'obs'], slr_poll[slr_poll$df_type=='train', 'slr']) %>% 
-      print()
-   error_matrix(slr_poll[slr_poll$df_type=='test', 'obs'], slr_poll[slr_poll$df_type=='test', 'slr']) %>% 
-      print()
-   
+   # error_matrix(slr_poll[slr_poll$df_type=='train', 'obs'], slr_poll[slr_poll$df_type=='train', 'slr']) %>% 
+   #    print()
+   # error_matrix(slr_poll[slr_poll$df_type=='test', 'obs'], slr_poll[slr_poll$df_type=='test', 'slr']) %>% 
+   #    print()
+   # 
    #f# SLR: perform cross-validation
    
    #-----------#f# GWR: train GWR----------
+   # the fixed/adaptive calibrated bandwidth does NOT change with regression grid cellsize.
    print("GWR")
    source("scr/fun_setupt_gwr.R")
    setup <- setup_gwr(train_sub, eu_bnd, 
@@ -152,57 +165,89 @@ foreach(i=seq_along(bandwidths)) %dopar% {
    sp_train <- setup[[1]]
    grd <- setup[[2]]
    DM <- setup[[3]]
-   plot(grd)
+   # plot(grd)
    # Calibrate bandwidth using CV
    # The calibration is not influenced by the regression grid cell size
-   if(!file.exists(paste0("data/workingData/GWR_dist_", year_target, ".txt"))){
+   if(!file.exists(paste0("data/workingData/GWR_dist_", 
+                          kernel_type[i], "_", years[[i]], ".txt"))){
       DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
                       rp.locat=coordinates(sp_train))
       # 
-      bandwidth_calibr <- bw.gwr(eq, data=sp_train, approach = "CV",
+      bandwidth_calibr <- bw.gwr(eq, data=sp_train, approach = "CV", kernel = kernel_type[i],
                                  adaptive = F, dMat = DM_1)
-      write.table(bandwidth_calibr, paste0("data/workingData/GWR_dist_", year_target, ".txt"))
+      write.table(bandwidth_calibr, paste0("data/workingData/GWR_dist_", 
+                                           kernel_type[i], "_", years[[i]], ".txt"))
    }
    # nngb %>% print()
    # source("scr/fun_gwr.R")
-   bandwidth_calibr <- read.table(paste0("data/workingData/GWR_dist_", year_target, ".txt"))[,1]
-   nngb <- read.table(paste0("data/workingData/GWR_nngb_run1_train_break_noxy", year_target,".txt"))[,1]
-
-   gwr_model <- gwr.basic(eq,
-                          data=sp_train, 
-                          regression.points=grd, 
-                          adaptive = F,
-                          bw=bandwidth_calibr,
-                          dMat=DM,
-                          kernel="exponential")
-   gwr_model_ad <- gwr.basic(eq,
-                             data=sp_train, 
-                             regression.points=grd, 
-                             adaptive = T,
-                             bw=nngb,
-                             dMat=DM,
-                             kernel="exponential")
-   #f# GWR: perform cross-validation
-   source("scr/fun_output_gwr_result.R")
-   gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, local_crs,
-                               output_filename = csv_name)
-   gwr_df_ad <- output_gwr_result(gwr_model_ad, train_sub, test_sub, local_crs,
-                               output_filename = paste0(csv_name, "_ad"))
-   error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr']) %>% 
-      print()
-   error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr']) %>% 
-      print()
-   error_matrix(gwr_df_ad[gwr_df_ad$df_type=='train', 'obs'], gwr_df_ad[gwr_df_ad$df_type=='train', 'gwr']) %>% 
-      print()
-   error_matrix(gwr_df_ad[gwr_df_ad$df_type=='test', 'obs'], gwr_df_ad[gwr_df_ad$df_type=='test', 'gwr']) %>% 
-      print()
-   # plot gwr surface
-   ncol(gwr_model$SDF) %>% print()  # the number of predictors selected
-   source('scr/fun_plot_gwr_coef.R')
-   plot_gwr_coef(i, gwr_model, csv_name = csv_name, 
-                 n_row = 2, n_col = 3)
-   plot_gwr_coef(i, gwr_model_ad, csv_name = paste0(csv_name, "_ad"), 
-                 n_row = 2, n_col = 3)
+   bandwidth_calibr <- read.table(paste0("data/workingData/GWR_dist_", 
+                                         kernel_type[i], "_", years[[i]], ".txt"))[,1]
+   nngb <- read.table(paste0("data/workingData/GWR_nngb_run1_train_break_noxy", 
+                             years[[i]],".txt"))[,1]
+   
+   
+   tryCatch(gwr_model <- gwr.basic(eq,
+                                   data=sp_train,
+                                   regression.points=grd,
+                                   adaptive = F,
+                                   bw=bandwidth_calibr,
+                                   dMat=DM,
+                                   kernel=kernel_type[i]), 
+            error=function(e) paste0("gwr cannot be run for ", csv_name))
+   tryCatch(gwr_model_ad <- gwr.basic(eq,
+                                      data=sp_train,
+                                      regression.points=grd,
+                                      adaptive = T,
+                                      bw=nngb,
+                                      dMat=DM,
+                                      kernel=kernel_type[i]),
+            error=function(e) paste0("gwr cannot be run for ", csv_name))
+   if("gwr_model_ad"%in%ls()&"gwr_model"%in%ls()){
+      #f# GWR: perform cross-validation
+      source("scr/fun_output_gwr_result.R")
+      gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, local_crs,
+                                  output_filename = csv_name)
+      gwr_df_ad <- output_gwr_result(gwr_model_ad, train_sub, test_sub, local_crs,
+                                     output_filename = paste0(csv_name, "_ad"))
+      # error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr']) %>% 
+      #    print()
+      # error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr']) %>% 
+      #    print()
+      # error_matrix(gwr_df_ad[gwr_df_ad$df_type=='train', 'obs'], gwr_df_ad[gwr_df_ad$df_type=='train', 'gwr']) %>% 
+      #    print()
+      # error_matrix(gwr_df_ad[gwr_df_ad$df_type=='test', 'obs'], gwr_df_ad[gwr_df_ad$df_type=='test', 'gwr']) %>% 
+      #    print()
+      # output all models' performance matrix
+      output_em <- function(pred_df, csv_name, model, year){
+         error_matrix(pred_df[pred_df$df_type=='train', 'obs'], pred_df[gwr_df$df_type=='train', 'gwr'])
+         
+         em <- rbind(error_matrix(pred_df[pred_df$df_type=='test', 'obs'], pred_df[pred_df$df_type=='test', model]) , 
+                     error_matrix(pred_df[pred_df$df_type=='train', 'obs'], pred_df[pred_df$df_type=='train', model])) %>% 
+            as.data.frame()
+         
+         perf_matrix <- em[, c(1, 5, 7)] %>% mutate(df_type=c('test','train'), model=model, year=year, csv_name=csv_name)
+         perf_matrix
+      }
+      # output_em(slr_poll, paste0('slr_', years[[i]]), 'slr', years[[i]])
+      # output_em(gwr_df, csv_name, 'gwr', years[[i]])
+      # output_em(gwr_df_ad, paste0(csv_name, '_ad'), 'gwr', years[[i]])
+      em <- rbind(output_em(slr_poll, paste0('slr_', years[[i]]), 'slr', years[[i]]),
+                  output_em(gwr_df, csv_name, 'gwr', years[[i]]),
+                  output_em(gwr_df_ad, paste0(csv_name, '_ad'), 'gwr', years[[i]])
+      )
+      em <- em  %>% arrange(df_type)
+      em
+      write.csv(em, paste0('data/workingData/model_perf_', csv_name, '.csv'), row.names = F)
+      
+      # plot gwr surface
+      ncol(gwr_model$SDF) %>% print()  # the number of predictors selected
+      source('scr/fun_plot_gwr_coef.R')
+      plot_gwr_coef(i, gwr_model, csv_name = csv_name, 
+                    n_row = 2, n_col = 3, eu_bnd=eu_bnd)
+      plot_gwr_coef(i, gwr_model_ad, csv_name = paste0(csv_name, "_ad"), 
+                    n_row = 2, n_col = 3, eu_bnd=eu_bnd)
+   }
+   
 }
 parallel::stopCluster(cl)
 
