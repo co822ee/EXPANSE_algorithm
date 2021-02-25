@@ -1,5 +1,5 @@
 slr_lme <- function(POLL, pred, stations, years, cv_n=1){
-   # POLL = train_sub$obs 
+   # POLL = train_sub$obs
    # pred = train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame()
    # stations = train_sub$station_european_code
    # years = train_sub$year
@@ -177,7 +177,7 @@ slr_lme <- function(POLL, pred, stations, years, cv_n=1){
          # models$summarybestmodel[[modeln]]$coefficients[(modeln+1),4]<0.1 #p-value is not available, only t-value and std. error
          data_df = cbind(POLL, pred_df)
          eq_lm <- as.formula(paste0('POLL~.'))
-         summary(lm(eq_lm, data=data_df))$coefficients[(modeln+1),4]<0.1 #p-value is not available, only t-value and std. error
+         summary(lm(eq_lm, data=as.data.frame(data_df)))$coefficients[(modeln+1),4]<0.1 #p-value is not available, only t-value and std. error
          modeln <- modeln+1
          
       }
