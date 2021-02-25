@@ -166,6 +166,12 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
    sp_train <- setup[[1]]
    grd <- setup[[2]]
    DM <- setup[[3]]
+   plot(coordinates(grd), col='red', pch=18)
+   plot(grd, add=T, col='dark green')
+   plot(eu_bnd[1], pch=16, col='transparent',add=TRUE)
+   plot(sp_train, add=T)
+   # tiff(paste0("graph/gwr_coef/coef_grid_", regression_grd_cellsize[i], '.tif'), 
+   #      width = 5, height=4, units='in', res=100)
    # plot(grd)
    # Calibrate bandwidth using CV
    # The calibration is not influenced by the regression grid cell size
@@ -256,7 +262,7 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
                                      output_filename = paste0(csv_name, "_ad_mixed"), mixedGWR = T)
       # output all models' performance matrix
       output_em <- function(pred_df, csv_name, model, year){
-         error_matrix(pred_df[pred_df$df_type=='train', 'obs'], pred_df[gwr_df$df_type=='train', 'gwr'])
+         error_matrix(pred_df[pred_df$df_type=='train', 'obs'], pred_df[pred_df$df_type=='train', 'gwr'])
          
          em <- rbind(error_matrix(pred_df[pred_df$df_type=='test', 'obs'], pred_df[pred_df$df_type=='test', model]) , 
                      error_matrix(pred_df[pred_df$df_type=='train', 'obs'], pred_df[pred_df$df_type=='train', model])) %>% 
@@ -304,7 +310,7 @@ parallel::stopCluster(cl)
 
 
 perfm <- lapply(paste0('data/workingData/', list.files('data/workingData/', 'model_perf_')), 
-                function(filename) read.csv(filename, header=T) )
+                function(file_name) read.csv(file_name, header=T) )
 perfm <- do.call(rbind, perfm)
 perfm <- perfm[!(duplicated(perfm$csv_name)&perfm$model=='slr'), ]
 perfm$reg_grdsize <- c(NA, lapply(perfm$csv_name[2:nrow(perfm)], function(f) strsplit(f, '_')[[1]][2]) %>% unlist() %>% as.numeric())
@@ -318,8 +324,9 @@ perfm$global <- c(NA, lapply(perfm$csv_name[2:nrow(perfm)], function(f){
              ((length(strsplit(f, '_')[[1]])==6)&(strsplit(f, '_')[[1]][6]=='mixed')),
           paste0('global ', global_vars), paste0('local ', global_vars))
 }) %>% unlist())
-perfm %>% dplyr::filter(kernel=='exponential') %>% View
-perfm %>% dplyr::filter(kernel=='gaussian') %>% View
+perfm %>% dplyr::filter(kernel=='exponential') %>% rbind(perfm[1,]) %>% arrange(rsq) %>% View
+perfm %>% dplyr::filter(kernel=='gaussian')%>% rbind(perfm[1,]) %>% arrange(rsq)   %>% View
+perfm %>% dplyr::filter(kernel=='gaussian')%>% rbind(perfm[1,]) %>% arrange(rsq)   %>% View
 
 read.csv(paste0("data/workingData/SLR_summary_model_run1_train_break_noxy", 2009,".csv"))
 
