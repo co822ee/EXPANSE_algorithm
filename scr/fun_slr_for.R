@@ -155,7 +155,7 @@ slr <- function(POLL, pred, cv_n=1){
          besti <- i
       } else {
          n <- besti
-         # break
+         break
       }
    }
    

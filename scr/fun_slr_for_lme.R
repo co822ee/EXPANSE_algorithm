@@ -196,7 +196,7 @@ slr_lme <- function(POLL, pred, stations, years, cv_n=1){
          besti <- i
       } else {
          n <- besti
-         # break
+         break
       }
    }
    
