@@ -168,6 +168,32 @@ for (i in seq_along(1:(nrow(tmp)/2))) {
 }
 tbl1
 ```
+# Compare predictions from different models
+* The year 2009 and 2010 exist in all models. 
+
+* LME and SLR using data from the 2006-2010 period gives different predictions compared to other periods.
+
+```{r fig.width = 8, fig.height = 8}
+periods <- list.files("data/workingData", "lme_slr") %>% substr(., 9, 13)
+pred_all <- lapply(paste0('data/workingData/', 
+                          list.files("data/workingData", "lme_slr")), read.csv)
+
+pred_all_clean <- lapply(pred_all, function(pred_df){
+   pred_df <- pred_df %>% filter(year%in%(2009:2010)) %>% dplyr::select(slr, lme, year, df_type, period, obs)  #obs, period,
+   names(pred_df)[1] <- paste0(names(pred_df)[1], '_', unique(pred_df$period))
+   names(pred_df)[2] <- paste0(names(pred_df)[2], '_', unique(pred_df$period))
+   pred_df
+   # pred_df %>% select(-)
+})
+pred_all_clean <- do.call(cbind, pred_all_clean)
+pred_all_clean <- pred_all_clean[, !duplicated(names(pred_all_clean))]
+
+plot_df <- pred_all_clean %>% 
+   filter(df_type=='test') %>% 
+   dplyr::select(-year, -df_type, -period)
+plot_df <- plot_df[,names(plot_df) %>% order]
+pairs(plot_df, upper.panel=NULL)
+```
 
 # add year as a predictor
 ```{r}
