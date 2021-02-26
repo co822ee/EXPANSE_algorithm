@@ -36,7 +36,7 @@ eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
 
 ```{r}
 # csv_name <- 'run1_train_2010'
-csv_names_slr <- paste0('run1_train_nobreak_xy', c(2002, 2004, 2006, 2008:2012))  #run1_train_nobreak_noxy run1_train_nobreak_xy     run1_train_break_xy      
+csv_names_slr <- paste0('run1_train_break_noxy', c(2002, 2004, 2006, 2008:2012))  #run1_train_nobreak_noxy run1_train_nobreak_xy     run1_train_break_xy      
 csv_names <- paste0('run1_train_', c(2002, 2004, 2006, 2008:2012))
 years <- as.list(c(2002, 2004, 2006, seq(2008, 2012)))
 
