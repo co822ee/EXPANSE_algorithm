@@ -112,7 +112,7 @@ for(i in seq_along(csv_names)){
    # # test_df <- data_all[index$test, ]
    # train_df <- train_sub
    # test_df <- test_sub
-   # pred_c_rf <- c(pred_c, "x_trun", "y_trun")
+   # pred_c_rf <- c(pred_c, neg_pred, "x_trun", "y_trun")
    # x_varname = names(data_all %>% dplyr::select(matches(pred_c_rf)))
    # ## LLO CV (small test for multiple years)
    # 
