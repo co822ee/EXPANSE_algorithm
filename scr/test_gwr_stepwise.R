@@ -1,4 +1,5 @@
 library(dplyr)
+library(tidyr)
 # stepwise
 source("scr/fun_call_predictor.R")
 elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
@@ -255,23 +256,56 @@ while(step_i<=10){  #(as.numeric(output[step_i,2])-as.numeric(output[step_i-1,2]
 output
 write.table(output, paste0("data/workingData/stepGWR_", 
                            year_target, ".txt"), row.names = F)
-perfm <- lapply(paste0('data/workingData/', list.files('data/workingData/', 'model_perf_')), 
-                function(file_name) read.csv(file_name, header=T) )
-perfm <- do.call(rbind, perfm)
-perfm <- perfm[!(duplicated(perfm$csv_name)&perfm$model=='slr'), ]
-perfm$reg_grdsize <- c(NA, lapply(perfm$csv_name[2:nrow(perfm)], function(f) strsplit(f, '_')[[1]][2]) %>% unlist() %>% as.numeric())
-perfm$kernel <- c(NA, lapply(perfm$csv_name[2:nrow(perfm)], function(f) strsplit(f, '_')[[1]][3]) %>% unlist() %>% as.character())
-perfm$adaptive <- c(NA, lapply(perfm$csv_name[2:nrow(perfm)], function(f){
-   ifelse((length(strsplit(f, '_')[[1]])>4)&(strsplit(f, '_')[[1]][5]=='ad'),
-          'adaptive bandwidth', 'fixed bandwidth')
-}) %>% unlist())
-perfm$global <- c(NA, lapply(perfm$csv_name[2:nrow(perfm)], function(f){
-   ifelse(((length(strsplit(f, '_')[[1]])==5)&(strsplit(f, '_')[[1]][5]=='mixed'))|
-             ((length(strsplit(f, '_')[[1]])==6)&(strsplit(f, '_')[[1]][6]=='mixed')),
-          paste0('global ', global_vars), paste0('local ', global_vars))
-}) %>% unlist())
-perfm %>% dplyr::filter(kernel=='exponential') %>% rbind(perfm[1,]) %>% arrange(rsq) %>% View
-perfm %>% dplyr::filter(kernel=='gaussian')%>% rbind(perfm[1,]) %>% arrange(rsq)   %>% View
-perfm %>% dplyr::filter(kernel=='gaussian')%>% rbind(perfm[1,]) %>% arrange(rsq)   %>% View
+#---------evaluate output----------
+output <- read.table(paste0("data/workingData/stepGWR_", 
+                            year_target, ".txt"), header = T)
 
-read.csv(paste0("data/workingData/SLR_summary_model_run1_train_break_noxy", 2009,".csv"))
+eq_gwr <- as.formula(paste0("obs~", paste(output$variables, collapse = "+")))
+# Optimize nngb (adaptive bandwidth)
+nngb <- bw.gwr(eq_gwr, data=sp_train, approach = "CV", kernel = kernel_type,
+               adaptive = T, dMat = DM_1)
+gwr_m <- tryCatch(gwr.basic(eq_gwr,
+                            data=sp_train,
+                            regression.points=grd,
+                            adaptive = T,
+                            bw=nngb,
+                            dMat=DM,
+                            kernel=kernel_type), 
+                  error=function(e) T)
+if(typeof(gwr_m)!='logical'){
+   source("scr/fun_output_gwr_result.R")
+   gwr_pred <- output_gwr_result(gwr_m, train_sub, test_sub, local_crs,
+                               output_filename = csv_name)
+}
+ncol(gwr_m$SDF)
+source('scr/fun_plot_gwr_coef.R')
+plot_gwr_coef(1, gwr_m, csv_name = csv_name, 
+              n_row = 3, n_col = 3, eu_bnd=eu_bnd)
+
+output_em <- function(pred_df, csv_name, model, year){
+   error_matrix(pred_df[pred_df$df_type=='train', 'obs'], pred_df[pred_df$df_type=='train', 'gwr'])
+   
+   em <- rbind(error_matrix(pred_df[pred_df$df_type=='test', 'obs'], pred_df[pred_df$df_type=='test', model]) , 
+               error_matrix(pred_df[pred_df$df_type=='train', 'obs'], pred_df[pred_df$df_type=='train', model])) %>% 
+      as.data.frame()
+   
+   perf_matrix <- em[, c(1, 5, 7)] %>% mutate(df_type=c('test','train'), model=model, year=year, csv_name=csv_name)
+   perf_matrix
+}
+output_em(gwr_pred, csv_name, 'gwr', year_target)
+
+error_matrix(as.data.frame(sp_train)$obs, gwr_pred)  
+
+gwr_pred_step <- gwr_pred
+gwr_pred_slr <- read.csv(paste0("data/workingData/GWR_result_all_run1_train_break_noxy", 
+                                year_target, '.csv'))
+gwr_all <- data.frame(gwr_step=gwr_pred_step$gwr, gwr_slr=gwr_pred_slr$gwr,
+                      obs=gwr_pred_slr$obs)
+ggplot(gwr_all)+
+   geom_point(aes(x=gwr_step, gwr_slr))
+cor(gwr_all$gwr_step, gwr_all$gwr_slr)^2
+
+ggplot(gwr_all %>% pivot_longer(c('gwr_slr', 'gwr_step'), 
+                                 names_to = "model", values_to = "prediction"))+
+   geom_point(aes(x=prediction, y=obs))+
+   facet_grid(.~model)
