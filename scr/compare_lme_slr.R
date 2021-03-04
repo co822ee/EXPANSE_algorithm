@@ -205,6 +205,7 @@ for(i in seq_along(years)){
 #    pred_all
 # }
 # pred_all <- lapply(seq_along(csv_names), output_multipleyear)
+#----------Compare stability------------
 periods <- list.files("data/workingData", "lme_slr") %>% substr(., 9, 13)
 pred_all <- lapply(paste0('data/workingData/', 
                           list.files("data/workingData", "lme_slr")), read.csv)
@@ -221,7 +222,7 @@ pred_all_clean <- do.call(cbind, pred_all_clean)
 pred_all_clean <- pred_all_clean[, !duplicated(names(pred_all_clean))]
 names(pred_all_clean)
 plot_df <- pred_all_clean %>% 
-   filter(df_type=='test') %>% 
+   filter(df_type=='test', year==2010) %>% 
    dplyr::select(-year, -df_type, -period)
 plot_df <- plot_df[,names(plot_df) %>% order]
 pairs(plot_df, upper.panel=NULL)

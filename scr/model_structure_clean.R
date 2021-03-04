@@ -43,8 +43,29 @@ subset_df_yrs <- function(obs_df, yr_target){
 # csv_names <- paste0('run1_train_break_noxy', c(2002, 2004, 2006, 2008:2012))   #2008:2012
 csv_names <- paste0('run2_', c(2002, 2004, 2006, 2008:2012))   #2008:2012
 years <- as.list(c(2002, 2004, 2006, 2008:2012))
-for(i in seq_along(csv_names)){
+library(doParallel)
+library(foreach)
+cluster_no <- 4
+cl <- parallel::makeCluster(cluster_no)
+doParallel::registerDoParallel(cl)
+foreach(i = seq_along(csv_names)) %dopar% {
+   library(dplyr)
+   library(tmap)
+   library(raster)
+   library(sf)
+   library(car)  # for running slr
+   library(GWmodel)  #gwr
+   library(viridis)  #palette for raster
+   library(ranger) # Random forests
+   library(caret)  #data partition
+   library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
+   library(splitTools)
+   library(APMtools)
+   library(lme4) # linear mixed effect models
+   library(CAST) # For dividing training and test data (CreateSpacetimeFolds)
+   library(performance) #extract model performance matrix for lme
    csv_name <- csv_names[i]
+   print("********************************************")
    print(csv_name)
    no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[i]])
    data_all <- no2_e_09_11
@@ -125,7 +146,7 @@ for(i in seq_along(csv_names)){
    print("RF predictors:")
    print(x_varname)
    ## LLO CV (small test for multiple years)
-
+   
    #f# RF: tune hyperparameter
    hyper_grid <- expand.grid(
       mtry = seq(30, length(x_varname), by=10),
@@ -140,7 +161,7 @@ for(i in seq_along(csv_names)){
                          y_varname='obs',
                          x_varname,
                          csv_name, hyper_grid)
-
+   
    #f# RF: train the model
    hyper_grid <- read.csv(paste0("data/workingData/rf_hyper_grid_", csv_name,".csv"))
    source("scr/fun_opt_rf.R")
@@ -154,6 +175,6 @@ for(i in seq_along(csv_names)){
    plot_rf_vi(csv_name, var_no = 10)
    #f# RF: perform cross-validation
    
-}
-
+} %>% system.time()
+parallel::stopCluster(cl)
 
