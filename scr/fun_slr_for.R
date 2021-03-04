@@ -102,42 +102,47 @@ slr <- function(POLL, pred, cv_n=1){
             }
          }
          
-         models$results[[modeln]]<-data.frame(addedvar=addedvar[-1],R2=R2[-1]*1, j=j[-1], betaaddedvar=betaaddedvar[-1]*1,minbetas=minbetas[-1]*1)
          
-         ### this are the candidates models with the highest R2, not a negative beta for the new nor for any other covariate, except "v10","u10","t2m","tcc"
-         models$resultspos[[modeln]]<-subset(models$results[[modeln]], minbetas>0 ) # | addedvar%in%c("v10","u10","t2m","tcc")
+         if(any(minbetas[-1]>0, na.rm = T)){
+            models$results[[modeln]]<-data.frame(addedvar=addedvar[-1],R2=R2[-1]*1, j=j[-1], betaaddedvar=betaaddedvar[-1]*1,minbetas=minbetas[-1]*1)
+            ### this are the candidates models with the highest R2, not a negative beta for the new nor for any other covariate, except "v10","u10","t2m","tcc"
+            models$resultspos[[modeln]]<-subset(models$results[[modeln]], minbetas>0 ) # | addedvar%in%c("v10","u10","t2m","tcc")
+            
+            #rank the R2's of these models
+            models$resultspos[[modeln]]<-(data.frame(models$resultspos[[modeln]], rank=rank(-models$resultspos[[modeln]]$R2, ties.method = "first")))
+            
+            ## this is the index of the row with the highest R2 and  no negative betas in this subset
+            models$indexbestmodel[[modeln]]<-subset(models$resultspos[[modeln]], rank==1)$j
+            
+            subset(models$resultspos[[modeln]], rank==1)
+            ##### manually check if the minbeta is positive, if minbeta<0, check the betas for covariables
+            # subset(models$resultspos[[modeln]], rank==1)$minbetas >0
+            
+            ###this is the model
+            models$summarybestmodel[[modeln]]<-models_candid[[models$indexbestmodel[[modeln]]]]
+            
+            ###here are the names
+            models$namesbestmodel[[modeln]]<-names(pred)[unlist(models$indexbestmodel[1:(modeln)])]
+            
+            ####this is the r2 of that model
+            models$R2bestmodel[[modeln]]<-subset(models$resultspos[[modeln]], rank==1)$R2
+            
+            ####this is the model object of the best model (can be used in Cook's D in car.infIndexPlot())
+            pred_df = cbind(pred[,unlist(models$indexbestmodel[1:modeln])])
+            data_df = cbind(POLL, pred_df)
+            eq_lm <- as.formula(paste0('POLL~.')) #+ (1|station_european_code) + (1|year)
+            models$bestmodel[[modeln]] <- lm(eq_lm, data=data_df) 
+            
+            models$summarybestmodel[[modeln]]
+            models$namesbestmodel[[modeln]]
+            models$R2bestmodel[[modeln-1]]
+            models$R2bestmodel[[modeln]]
+            models$summarybestmodel[[modeln]]$coefficients[(modeln+1),4]<0.1
+            modeln <- modeln+1
+         }else{
+            break
+         }
          
-         #rank the R2's of these models
-         models$resultspos[[modeln]]<-(data.frame(models$resultspos[[modeln]], rank=rank(-models$resultspos[[modeln]]$R2, ties.method = "first")))
-         
-         ## this is the index of the row with the highest R2 and  no negative betas in this subset
-         models$indexbestmodel[[modeln]]<-subset(models$resultspos[[modeln]], rank==1)$j
-         
-         subset(models$resultspos[[modeln]], rank==1)
-         ##### manually check if the minbeta is positive, if minbeta<0, check the betas for covariables
-         # subset(models$resultspos[[modeln]], rank==1)$minbetas >0
-         
-         ###this is the model
-         models$summarybestmodel[[modeln]]<-models_candid[[models$indexbestmodel[[modeln]]]]
-         
-         ###here are the names
-         models$namesbestmodel[[modeln]]<-names(pred)[unlist(models$indexbestmodel[1:(modeln)])]
-         
-         ####this is the r2 of that model
-         models$R2bestmodel[[modeln]]<-subset(models$resultspos[[modeln]], rank==1)$R2
-         
-         ####this is the model object of the best model (can be used in Cook's D in car.infIndexPlot())
-         pred_df = cbind(pred[,unlist(models$indexbestmodel[1:modeln])])
-         data_df = cbind(POLL, pred_df)
-         eq_lm <- as.formula(paste0('POLL~.')) #+ (1|station_european_code) + (1|year)
-         models$bestmodel[[modeln]] <- lm(eq_lm, data=data_df) 
-         
-         models$summarybestmodel[[modeln]]
-         models$namesbestmodel[[modeln]]
-         models$R2bestmodel[[modeln-1]]
-         models$R2bestmodel[[modeln]]
-         models$summarybestmodel[[modeln]]$coefficients[(modeln+1),4]<0.1
-         modeln <- modeln+1
          
       }
    }
