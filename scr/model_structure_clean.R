@@ -1,4 +1,5 @@
 library(dplyr)
+library(tmap)
 library(raster)
 library(sf)
 library(car)  # for running slr
@@ -22,6 +23,7 @@ elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_clim
 ## Read in data (airbase observations 1990s-2012)
 airbase <- read.csv("../airbase/EXPANSE_APM/data/processed/ab_v8_yr_pollutants4_day_hr.csv")
 no2 <- airbase %>% filter(component_caption=="NO2")
+rm(airbase)
 # rename data
 elapse_no2 <- dplyr::rename(elapse_no2, station_european_code=ï..Station)
 # reduce airbase data
@@ -67,6 +69,9 @@ for(i in seq_along(csv_names)){
    # POLL=train_sub$obs
    # pred <- train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame()
    # cv_n = csv_name
+   # check the predictor variables
+   print("SLR predictors:")
+   train_sub %>% dplyr::select(matches(pred_c)) %>% names()
    slr_result <- slr(train_sub$obs, train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame(), 
                      cv_n = csv_name)
    slr_model <- slr_result[[3]]
@@ -90,7 +95,7 @@ for(i in seq_along(csv_names)){
    DM <- setup[[3]]
    source("scr/fun_calibr_gwr.R")
    nngb <- calibr_gwr(sp_train, csv_name)
-   nngb %>% print()
+   print(paste0("nngb: ", nngb))
    source("scr/fun_gwr.R")
    gwr_model <- gwr(sp_train, grd, DM, nngb, csv_name)
    #f# GWR: perform cross-validation
@@ -104,47 +109,49 @@ for(i in seq_along(csv_names)){
    # plot gwr surface
    ncol(gwr_model$SDF) %>% print()  # the number of predictors selected
    source('scr/fun_plot_gwr_coef.R')
-   plot_gwr_coef(i, n_row = 3, n_col = 4)
+   plot_gwr_coef(i, gwr_model, csv_name, n_row = 3, n_col = 4, eu_bnd = eu_bnd)
    ##--------- RF: split data into train, validation, and test data--------
-   # print("RF")
-   # set.seed(seed)
-   # # index <- partition(data_all$country_code, p=c(train=0.6, valid=0.2, test=0.2))
-   # # train_df <- data_all[index$train, ]
-   # # valid_df <- data_all[index$valid, ]
-   # # test_df <- data_all[index$test, ]
-   # train_df <- train_sub
-   # test_df <- test_sub
-   # pred_c_rf <- c(pred_c, neg_pred, "x_trun", "y_trun")
-   # x_varname = names(data_all %>% dplyr::select(matches(pred_c_rf)))
-   # ## LLO CV (small test for multiple years)
-   # 
-   # #f# RF: tune hyperparameter
-   # hyper_grid <- expand.grid(
-   #    mtry = seq(30, length(x_varname), by=10),
-   #    ntrees = seq(500,1500, by=200),
-   #    OOB_RMSE = 0,
-   #    OOB_R2 = 0,
-   #    valid_RMSE = 0,
-   #    valid_R2 = 0
-   # )
-   # source("scr/fun_tune_rf.R")
-   # hyper_grid <- tune_rf(train_df, test_df, #valid_df,
-   #                       y_varname='obs', 
-   #                       x_varname,
-   #                       csv_name, hyper_grid)
-   # 
-   # #f# RF: train the model
-   # hyper_grid <- read.csv(paste0("data/workingData/rf_hyper_grid_", csv_name, '.csv'))
-   # source("scr/fun_opt_rf.R")
-   # rf_result <- opt_rf(train_df, test_df, 
-   #                     y_varname='obs', 
-   #                     x_varname = x_varname,
-   #                     csv_name, hyper_grid)
-   # rf_result$eval_train %>% print()
-   # rf_result$eval_test %>% print()
-   # source("scr/fun_plot_rf_vi.R")
-   # plot_rf_vi(csv_name, var_no = 10)
-   # #f# RF: perform cross-validation
+   print("--------------- RF ---------------")
+   set.seed(seed)
+   # index <- partition(data_all$country_code, p=c(train=0.6, valid=0.2, test=0.2))
+   # train_df <- data_all[index$train, ]
+   # valid_df <- data_all[index$valid, ]
+   # test_df <- data_all[index$test, ]
+   train_df <- train_sub
+   test_df <- test_sub
+   pred_c_rf <- c(pred_c, "x_trun", "y_trun")
+   x_varname = names(data_all %>% dplyr::select(matches(pred_c_rf)))
+   print("RF predictors:")
+   print(x_varname)
+   ## LLO CV (small test for multiple years)
+
+   #f# RF: tune hyperparameter
+   hyper_grid <- expand.grid(
+      mtry = seq(30, length(x_varname), by=10),
+      ntrees = seq(500,1000, by=200),
+      OOB_RMSE = 0,
+      OOB_R2 = 0,
+      valid_RMSE = 0,
+      valid_R2 = 0
+   )
+   source("scr/fun_tune_rf.R")
+   hyper_grid <- tune_rf(train_df, test_df, #valid_df,
+                         y_varname='obs',
+                         x_varname,
+                         csv_name, hyper_grid)
+
+   #f# RF: train the model
+   hyper_grid <- read.csv(paste0("data/workingData/rf_hyper_grid_", csv_name,".csv"))
+   source("scr/fun_opt_rf.R")
+   rf_result <- opt_rf(train_df, test_df,
+                       y_varname='obs',
+                       x_varname = x_varname,
+                       csv_name, hyper_grid)
+   rf_result$eval_train %>% print()
+   rf_result$eval_test %>% print()
+   source("scr/fun_plot_rf_vi.R")
+   plot_rf_vi(csv_name, var_no = 10)
+   #f# RF: perform cross-validation
    
 }
 
