@@ -20,7 +20,8 @@ eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
 elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
                        encoding = "utf-8")
 ## Read in data (airbase observations 1990s-2012)
-no2 <- read.csv("../airbase/EXPANSE_APM/data/processed/ab_v8_yr_no2.csv")
+airbase <- read.csv("../airbase/EXPANSE_APM/data/processed/ab_v8_yr_pollutants4_day_hr.csv")
+no2 <- airbase %>% filter(component_caption=="NO2")
 # rename data
 elapse_no2 <- dplyr::rename(elapse_no2, station_european_code=ï..Station)
 # reduce airbase data
@@ -58,6 +59,7 @@ for(i in seq_along(csv_names)){
    source("scr/fun_slr_proc_in_data.R")
    train_sub <- proc_in_data(train_sub, neg_pred)
    test_sub <- proc_in_data(test_sub, neg_pred)
+   data_all <- rbind(train_sub, test_sub)
    #------------------Above code is needed for all algorithms----------------------
    #---------#f# SLR: train SLR -----------
    source("scr/fun_slr_for.R")
