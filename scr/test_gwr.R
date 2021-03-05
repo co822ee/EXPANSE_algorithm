@@ -103,7 +103,7 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
    
    #---------Test the bandwidth----------
    # Test the kernel function:
-   regression_grd_cellsize <- c(80, 100, 200, 600, 1000, 1500, 2000)   #km
+   regression_grd_cellsize <- c(10, 100, 200, 600, 1000, 1500, 2000)   #km
    kernels <- c('gaussian', 'exponential', 'bisquare', 'tricube')
    year_target <- 2009
    comb <- expand.grid(regression_grd_cellsize=regression_grd_cellsize, kernel_type=kernels) %>% 
