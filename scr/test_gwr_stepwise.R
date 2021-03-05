@@ -9,31 +9,7 @@ x_var <- names(elapse_no2 %>% dplyr::select(matches(x_varname)))
 R2 <- vector("numeric", length=length(x_var))
 output <- data.frame(variables=0, increR2=0)
 
-
-#
-seed <- 123
-local_crs <- CRS("+init=EPSG:3035")
-
-eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
-## Read in data (elapse NO2 2010 with climate zones included)
-elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
-                       encoding = "utf-8")
-## Read in data (airbase observations 1990s-2012)
-no2 <- read.csv("../airbase/EXPANSE_APM/data/processed/ab_v8_yr_no2.csv")
-# rename data
-elapse_no2 <- rename(elapse_no2, station_european_code=ï..Station)
-# reduce airbase data
-no2 <- no2 %>% rename(year=statistics_year, obs=statistic_value)
-## subset stations that are included in the elapse (cause at this stage, we don't have the predictor maps...)
-no2_e <- no2 %>% filter(no2$station_european_code%in%unique(elapse_no2$station_european_code))
-no2_e_all <- left_join(no2_e, elapse_no2, by="station_european_code")
-
-## subset samples (for multiple years or each year)
-subset_df_yrs <- function(obs_df, yr_target){
-   no2_e_sub <- obs_df %>% filter(year%in%yr_target)
-   no2_e_sub
-}
-
+source("scr/fun_read_data.R")
 regression_grd_cellsize <- 200   #km
 year_target <- 2009
 kernel_type <- "exponential"
@@ -47,7 +23,7 @@ data_all <- no2_e_09_11
 #f# stratified by station types, climate zones and/or years
 set.seed(seed)
 data_all$index <- 1:nrow(data_all)
-train_sub <- stratified(data_all, c('type_of_st', 'climate_zone'), 0.8)
+train_sub <- stratified(data_all, c('type_of_st', 'zoneID'), 0.8)
 test_sub <- data_all[-train_sub$index, ]
 
 # --> yes indeed the stations are not the same in training and test data
@@ -61,9 +37,9 @@ test_sub <- proc_in_data(test_sub, neg_pred)
 #------------------Above code is needed for all algorithms----------------------
 #---------#f# SLR: train SLR -----------
 
-slr <- read.csv(paste0("data/workingData/SLR_summary_model_run1_train_break_noxy", year_target,".csv"))
-slr_poll <- read.csv(paste0('data/workingData/SLR_result_all_run1_train_break_noxy', year_target,".csv"))
-eq <- as.formula(paste0('obs~',  paste(slr$variables[-1], collapse = "+")))
+# slr <- read.csv(paste0("data/workingData/SLR_summary_model_run1_train_break_noxy", year_target,".csv"))
+# slr_poll <- read.csv(paste0('data/workingData/SLR_result_all_run1_train_break_noxy', year_target,".csv"))
+# eq <- as.formula(paste0('obs~',  paste(slr$variables[-1], collapse = "+")))
 
 #f# SLR: perform cross-validation
 
@@ -177,6 +153,7 @@ x_highest <- x_var[which.max(R2)]
 R2_highest <- max(R2)
 step_i <- 1
 output[step_i,] <- cbind(variables=x_highest, increR2=R2_highest)
+output
 #---step2-----
 # step_i=2
 #for

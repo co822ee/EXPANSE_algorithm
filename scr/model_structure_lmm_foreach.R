@@ -3,10 +3,10 @@ library(doParallel)
 #o# multiple years
 c1 <- makeCluster(5)
 registerDoParallel(c1)
-names <- paste0('run1_train_', c('09-11', '08-12', '06-10', '06-12'))
+names <- paste0('run2_', c('09-11', '08-12', '06-10', '06-12'))
 years <- list(2009:2011, 2008:2012, 2006:2010, 2006:2012)
 foreach(i = 1:4) %dopar% {
-   names <- paste0('run1_train_', c('09-11', '08-12', '06-10', '06-12'))
+   names <- paste0('run2_', c('09-11', '08-12', '06-10', '06-12'))
    years <- list(2009:2011, 2008:2012, 2006:2010, 2006:2012)
    library(dplyr)
    library(raster)
@@ -52,7 +52,7 @@ foreach(i = 1:4) %dopar% {
    #f# stratified by station types, climate zones and/or years
    set.seed(seed)
    data_all$index <- 1:nrow(data_all)
-   # train_sub <- stratified(data_all, c('type_of_st', 'climate_zone'), 0.8)
+   # train_sub <- stratified(data_all, c('type_of_st', 'zoneID'), 0.8)
    # test_sub <- data_all[-train_sub$index, ]
    
    # Test only leave location out first 

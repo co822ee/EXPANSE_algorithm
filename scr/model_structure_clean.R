@@ -74,7 +74,7 @@ foreach(i = seq_along(csv_names)) %dopar% {
    #f# stratified by station types, climate zones and/or years
    set.seed(seed)
    data_all$index <- 1:nrow(data_all)
-   train_sub <- stratified(data_all, c('type_of_st', 'climate_zone'), 0.8)
+   train_sub <- stratified(data_all, c('type_of_st', 'zoneID'), 0.8)
    test_sub <- data_all[-train_sub$index, ]
    
    #f# SLR: select predictors
@@ -131,7 +131,7 @@ foreach(i = seq_along(csv_names)) %dopar% {
    # plot gwr surface
    ncol(gwr_model$SDF) %>% print()  # the number of predictors selected
    source('scr/fun_plot_gwr_coef.R')
-   plot_gwr_coef(i, gwr_model, csv_name, n_row = 3, n_col = 4, eu_bnd = eu_bnd)
+   plot_gwr_coef(i, gwr_model, csv_name, n_row = 3, n_col = 3, eu_bnd = eu_bnd)
    ##--------- RF: split data into train, validation, and test data--------
    print("--------------- RF ---------------")
    set.seed(seed)

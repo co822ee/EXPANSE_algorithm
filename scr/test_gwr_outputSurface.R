@@ -52,7 +52,7 @@ data_all <- no2_e_09_11
 #f# stratified by station types, climate zones and/or years
 set.seed(seed)
 data_all$index <- 1:nrow(data_all)
-train_sub <- stratified(data_all, c('type_of_st', 'climate_zone'), 0.8)
+train_sub <- stratified(data_all, c('type_of_st', 'zoneID'), 0.8)
 test_sub <- data_all[-train_sub$index, ]
 
 all_sub <- rbind(train_sub %>% mutate(df_type='train'), 
@@ -73,8 +73,8 @@ train_sub <- proc_in_data(train_sub, neg_pred)
 test_sub <- proc_in_data(test_sub, neg_pred)
 #------------------Above code is needed for all algorithms----------------------
 #---------#f# SLR: train SLR -----------
-slr <- read.csv(paste0("data/workingData/SLR_summary_model_run1_train_break_noxy", year_target,".csv"))
-slr_poll <- read.csv(paste0('data/workingData/SLR_result_all_run1_train_break_noxy', year_target,".csv"))
+slr <- read.csv(paste0("data/workingData/SLR_summary_model_run2_", year_target,".csv"))
+slr_poll <- read.csv(paste0('data/workingData/SLR_result_all_run2_', year_target,".csv"))
 eq <- as.formula(paste0('obs~',  paste(slr$variables[-1], collapse = "+")))
 
 #f# SLR: perform cross-validation
