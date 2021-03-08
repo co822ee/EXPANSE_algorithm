@@ -269,6 +269,7 @@ perfm$reg_grdsize <- c(lapply(perfm$csv_name[1:nrow(perfm)], function(f) strspli
 perfm$kernel <- c(lapply(perfm$csv_name[1:nrow(perfm)], function(f) strsplit(f, '_')[[1]][3]) %>% unlist() %>% as.character())
 ggplot(perfm)+
    geom_line(aes(x=reg_grdsize, y=rsq, col=df_type))+
-   geom_point(aes(x=reg_grdsize, y=rsq, col=df_type))
+   geom_point(aes(x=reg_grdsize, y=rsq, col=df_type))+
+   labs(title=paste0(unique(perfm$year), " (", unique(perfm$kernel), ")"))
 
 read.csv(paste0("data/workingData/SLR_summary_model_run1_train_break_noxy", 2009,".csv"))
