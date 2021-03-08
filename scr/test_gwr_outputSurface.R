@@ -40,7 +40,7 @@ subset_df_yrs <- function(obs_df, yr_target){
 # Test the kernel function:
 regression_grd_cellsize <- 200  #km
 kernel_type <- 'exponential'
-year_target <- 2009
+year_target <- 2010
 out_dir <- "data/workingData/gwr_coef_surface/"
 reg_grdsize <- regression_grd_cellsize*1000
 # csv_names <- comb$csv_name
@@ -148,6 +148,7 @@ coef_stack <- stack(gwr_model_ad$SDF)
 #------output coef surface--------
 if(!dir.exists(out_dir)) dir.create(paste0(out_dir))
 writeRaster(coef_stack, paste0(out_dir, csv_name, ".tif"))
+write.table(names(coef_stack), paste0(out_dir, csv_name, ".txt"), row.names = F)
 plot(raster(paste0(out_dir, csv_name, ".tif")))
 
 # # mixed GWR
