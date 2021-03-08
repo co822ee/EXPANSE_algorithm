@@ -2,6 +2,7 @@ library(dplyr)
 library(tidyr)
 # stepwise
 source("scr/fun_call_predictor.R")
+source("scr/fun_call_lib.R")
 elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
                        encoding = "utf-8")
 x_varname <- c(pred_c, neg_pred)
@@ -62,27 +63,27 @@ DM <- setup[[3]]
 
 # Calibrate bandwidth using CV
 # The calibration is not influenced by the regression grid cell size
-if(!file.exists(paste0("data/workingData/GWR_dist_", 
-                       kernel_type, "_", year_target, ".txt"))){
-   DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
-                   rp.locat=coordinates(sp_train))
-   # 
-   bandwidth_calibr <- bw.gwr(eq, data=sp_train, approach = "CV", kernel = kernel_type,
-                              adaptive = F, dMat = DM_1)
-   write.table(bandwidth_calibr, paste0("data/workingData/GWR_dist_", 
-                                        kernel_type, "_", year_target, ".txt"))
-}
-
-if(!file.exists(paste0("data/workingData/GWR_nngb_", 
-                       kernel_type, "_", year_target, ".txt"))){
-   DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
-                   rp.locat=coordinates(sp_train))
-   # 
-   nngb <- bw.gwr(eq, data=sp_train, approach = "CV", kernel = kernel_type,
-                  adaptive = T, dMat = DM_1)
-   write.table(nngb, paste0("data/workingData/GWR_nngb_", 
-                            kernel_type, "_", year_target, ".txt"))
-}
+# if(!file.exists(paste0("data/workingData/GWR_dist_", 
+#                        kernel_type, "_", year_target, ".txt"))){
+#    DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
+#                    rp.locat=coordinates(sp_train))
+#    # 
+#    bandwidth_calibr <- bw.gwr(eq, data=sp_train, approach = "CV", kernel = kernel_type,
+#                               adaptive = F, dMat = DM_1)
+#    write.table(bandwidth_calibr, paste0("data/workingData/GWR_dist_", 
+#                                         kernel_type, "_", year_target, ".txt"))
+# }
+# 
+# if(!file.exists(paste0("data/workingData/GWR_nngb_", 
+#                        kernel_type, "_", year_target, ".txt"))){
+#    DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
+#                    rp.locat=coordinates(sp_train))
+#    # 
+#    nngb <- bw.gwr(eq, data=sp_train, approach = "CV", kernel = kernel_type,
+#                   adaptive = T, dMat = DM_1)
+#    write.table(nngb, paste0("data/workingData/GWR_nngb_", 
+#                             kernel_type, "_", year_target, ".txt"))
+# }
 
 # nngb %>% print()
 # source("scr/fun_gwr.R")
@@ -123,7 +124,7 @@ R2_l <- foreach(i=seq_along(x_var)) %dopar% {
                      adaptive = T, dMat = DM_1)
       print(paste0("nngb: ", nngb))
    }else{
-      nngb <- read.table(paste0("data/workingData/GWR_nngb_run1_train_break_noxy",
+      nngb <- read.table(paste0("data/workingData/GWR_nngb_run2_",
                                 year_target,".txt"))[,1]
    }
    gwr_m <- tryCatch(gwr.basic(eq_gwr,
@@ -231,12 +232,13 @@ while(step_i<=10){  #(as.numeric(output[step_i,2])-as.numeric(output[step_i-1,2]
    }
 }
 output
+if(any(diff(output$increR2)<0.01)) output <- output[-(which(diff(output$increR2)<0.01)+1),]
 write.table(output, paste0("data/workingData/stepGWR_", 
                            year_target, ".txt"), row.names = F)
 #---------evaluate output----------
 output <- read.table(paste0("data/workingData/stepGWR_", 
                             year_target, ".txt"), header = T)
-
+read.csv(paste0("data/workingData/SLR_summary_model_run2_", year_target, ".csv"), header=T)[,c(1,2,7)]
 eq_gwr <- as.formula(paste0("obs~", paste(output$variables, collapse = "+")))
 # Optimize nngb (adaptive bandwidth)
 nngb <- bw.gwr(eq_gwr, data=sp_train, approach = "CV", kernel = kernel_type,
@@ -271,15 +273,16 @@ output_em <- function(pred_df, csv_name, model, year){
 }
 output_em(gwr_pred, csv_name, 'gwr', year_target)
 
-error_matrix(as.data.frame(sp_train)$obs, gwr_pred)  
+# error_matrix(as.data.frame(sp_train)$obs, gwr_pred$gwr)  
 
 gwr_pred_step <- gwr_pred
-gwr_pred_slr <- read.csv(paste0("data/workingData/GWR_result_all_run1_train_break_noxy", 
+gwr_pred_slr <- read.csv(paste0("data/workingData/GWR_result_all_run2_", 
                                 year_target, '.csv'))
 gwr_all <- data.frame(gwr_step=gwr_pred_step$gwr, gwr_slr=gwr_pred_slr$gwr,
                       obs=gwr_pred_slr$obs)
 ggplot(gwr_all)+
-   geom_point(aes(x=gwr_step, gwr_slr))
+   geom_point(aes(x=gwr_step, gwr_slr))+
+   geom_abline(slope=1, intercept=0)
 cor(gwr_all$gwr_step, gwr_all$gwr_slr)^2
 
 ggplot(gwr_all %>% pivot_longer(c('gwr_slr', 'gwr_step'), 
