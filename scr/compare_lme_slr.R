@@ -1,3 +1,4 @@
+# This needs to be run after model_strcuture_lmm_foreach.R
 library(dplyr)
 library(APMtools)
 library(lme4) # linear mixed effect models
@@ -8,7 +9,7 @@ seed <- 123
 elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
                        encoding = "utf-8")
 ## Read in data (airbase observations 1990s-2012)
-no2 <- read.csv("../airbase/EXPANSE_APM/data/processed/ab_v8_yr_no2.csv")
+no2 <- read.csv("../EXPANSE_APM/data/processed/ab_v8_yr_no2.csv")
 # rename data
 elapse_no2 <- dplyr::rename(elapse_no2, station_european_code=ï..Station)
 # reduce airbase data
@@ -23,14 +24,14 @@ subset_df_yrs <- function(obs_df, yr_target){
    no2_e_sub
 }
 model_scenario <- c('09-11', '08-12', '06-10', '06-12')
-csv_names <- paste0('run1_train_', c('09-11', '08-12', '06-10', '06-12'))
+csv_names <- paste0('run2_', c('09-11', '08-12', '06-10', '06-12'))
 years <- list(2009:2011, 2008:2012, 2006:2010, 2006:2012)
 lme_result <- lapply(paste0("data/workingData/LME_summary_model_", csv_names, ".csv") , read.csv)
 slr_result <- lapply(paste0("data/workingData/SLR_summary_model_", csv_names, ".csv") , read.csv)
 
 out_pred <- function(i, model_result, modelname){
    data.frame(pred=model_result[[i]]$variables[-1], 
-              period=paste0(substr(csv_names[[i]], 12, nchar(csv_names[[i]])),
+              period=paste0(substr(csv_names[[i]], 6, nchar(csv_names[[i]])),
                             "_", modelname))
 }
 slr_pred <- lapply(seq_along(years), out_pred, model_result=slr_result, "slr")

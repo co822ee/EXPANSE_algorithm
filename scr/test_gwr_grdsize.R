@@ -26,7 +26,7 @@ eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
 elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
                        encoding = "utf-8")
 ## Read in data (airbase observations 1990s-2012)
-no2 <- read.csv("../airbase/EXPANSE_APM/data/processed/ab_v8_yr_no2.csv")
+no2 <- read.csv("../EXPANSE_APM/data/processed/ab_v8_yr_no2.csv")
 # rename data
 elapse_no2 <- rename(elapse_no2, station_european_code=ï..Station)
 # reduce airbase data
@@ -34,7 +34,7 @@ no2 <- no2 %>% rename(year=statistics_year, obs=statistic_value)
 ## subset stations that are included in the elapse (cause at this stage, we don't have the predictor maps...)
 no2_e <- no2 %>% filter(no2$station_european_code%in%unique(elapse_no2$station_european_code))
 no2_e_all <- left_join(no2_e, elapse_no2, by="station_european_code")
-source("../airbase/EXPANSE_APM/src/fun_eda_spatial_distribution_annualobs_laea.R")
+source("../EXPANSE_APM/src/fun_eda_spatial_distribution_annualobs_laea.R")
 annual_spatial_dist(poll_conc = no2_e_all, eu_bnd = eu_bnd, 
                     folder_subnote = 'elapse_ab')
 ## subset samples (for multiple years or each year)
@@ -83,7 +83,7 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
    elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
                           encoding = "utf-8")
    ## Read in data (airbase observations 1990s-2012)
-   no2 <- read.csv("../airbase/EXPANSE_APM/data/processed/ab_v8_yr_no2.csv")
+   no2 <- read.csv("../EXPANSE_APM/data/processed/ab_v8_yr_no2.csv")
    # rename data
    elapse_no2 <- rename(elapse_no2, station_european_code=ï..Station)
    # reduce airbase data

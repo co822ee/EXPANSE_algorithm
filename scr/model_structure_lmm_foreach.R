@@ -30,7 +30,7 @@ foreach(i = 1:4) %dopar% {
    elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
                           encoding = "utf-8")
    ## Read in data (airbase observations 1990s-2012)
-   no2 <- read.csv("../airbase/EXPANSE_APM/data/processed/ab_v8_yr_no2.csv")
+   no2 <- read.csv("../EXPANSE_APM/data/processed/ab_v8_yr_no2.csv")
    # rename data
    elapse_no2 <- dplyr::rename(elapse_no2, station_european_code=ï..Station)
    # reduce airbase data
