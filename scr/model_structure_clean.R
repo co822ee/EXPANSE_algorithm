@@ -1,41 +1,20 @@
-library(dplyr)
-library(tmap)
-library(raster)
-library(sf)
-library(car)  # for running slr
-library(GWmodel)  #gwr
-library(viridis)  #palette for raster
-library(ranger) # Random forests
-library(caret)  #data partition
-library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
-library(splitTools)
-library(APMtools)
-library(lme4) # linear mixed effect models
-library(CAST) # For dividing training and test data (CreateSpacetimeFolds)
-library(performance) #extract model performance matrix for lme
-seed <- 123
-local_crs <- CRS("+init=EPSG:3035")
-
-eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
-## Read in data (elapse NO2 2010 with climate zones included)
-elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
-                       encoding = "utf-8")
-## Read in data (airbase observations 1990s-2012)
-airbase <- read.csv("../airbase/EXPANSE_APM/data/processed/ab_v8_yr_pollutants4_day_hr.csv")
-no2 <- airbase %>% filter(component_caption=="NO2")
-rm(airbase)
-# rename data
-elapse_no2 <- dplyr::rename(elapse_no2, station_european_code=ï..Station)
-# reduce airbase data
-no2 <- no2 %>% dplyr::rename(year=statistics_year, obs=statistic_value)
-## subset stations that are included in the elapse (cause at this stage, we don't have the predictor maps...)
-no2_e <- no2 %>% filter(no2$station_european_code%in%unique(elapse_no2$station_european_code))
-no2_e_all <- left_join(no2_e, elapse_no2, by="station_european_code")
-## subset samples (for multiple years or each year)
-subset_df_yrs <- function(obs_df, yr_target){
-   no2_e_sub <- obs_df %>% filter(year%in%yr_target)
-   no2_e_sub
-}
+# library(dplyr)
+# library(tmap)
+# library(raster)
+# library(sf)
+# library(car)  # for running slr
+# library(GWmodel)  #gwr
+# library(viridis)  #palette for raster
+# library(ranger) # Random forests
+# library(caret)  #data partition
+# library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
+# library(splitTools)
+# library(APMtools)
+# library(lme4) # linear mixed effect models
+# library(CAST) # For dividing training and test data (CreateSpacetimeFolds)
+# library(performance) #extract model performance matrix for lme
+source("scr/fun_call_lib.R")
+source("scr/fun_read_data.R")
 #o# multiple years
 
 # names <- paste0('run1_train_', c('2010', '09-11', '08-12'))
