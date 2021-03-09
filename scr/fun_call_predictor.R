@@ -8,7 +8,7 @@
 #              'ROADS_EU',
 #              c('no2_10MACC', 'PM25_10_MACC','no2_10SAT', 'PM25_10_SAT', 'DEHM_NO2_2010'),
 #              'RES')
-pred_c <- c(c('pop2011'),  #'x_trun', 'y_trun',
+pred_c <- c(c('alt_t', 'pop2011'),  #'x_trun', 'y_trun',
             'clc10',
             'clc14',
             'clc3',
