@@ -26,7 +26,7 @@ eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
 elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
                        encoding = "utf-8")
 ## Read in data (airbase observations 1990s-2012)
-no2 <- read.csv("../EXPANSE_APM/data/processed/ab_v8_yr_no2.csv")
+no2 <- read.csv("../EXPANSE_APM/data/processed/ab_v8_yr_checked.csv")
 # rename data
 elapse_no2 <- rename(elapse_no2, station_european_code=ï..Station)
 # reduce airbase data
