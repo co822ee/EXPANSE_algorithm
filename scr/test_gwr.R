@@ -2,52 +2,12 @@
 # Bandwidth (adaptive or not)
 # kernel type (just Gaussian and exponential)
 # regression grid cellsize
-library(dplyr)
-library(raster)
-library(sf)
-library(car)  # for running slr
-library(GWmodel)  #gwr
-library(viridis)  #palette for raster
-library(ranger) # Random forests
-library(caret)  #data partition
-library(tmap)
-library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
-library(splitTools)
-library(APMtools)
-library(lme4) # linear mixed effect models
-library(CAST) # For dividing training and test data (CreateSpacetimeFolds)
-library(performance) #extract model performance matrix for lme
-
-seed <- 123
-local_crs <- CRS("+init=EPSG:3035")
-
-eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
-## Read in data (elapse NO2 2010 with climate zones included)
-elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
-                       encoding = "utf-8")
-## Read in data (airbase observations 1990s-2012)
-no2 <- read.csv("../EXPANSE_APM/data/processed/ab_v8_yr_checked.csv")
-# rename data
-elapse_no2 <- rename(elapse_no2, station_european_code=ï..Station)
-# reduce airbase data
-no2 <- no2 %>% rename(year=statistics_year, obs=statistic_value)
-## subset stations that are included in the elapse (cause at this stage, we don't have the predictor maps...)
-no2_e <- no2 %>% filter(no2$station_european_code%in%unique(elapse_no2$station_european_code))
-no2_e_all <- left_join(no2_e, elapse_no2, by="station_european_code")
-source("../EXPANSE_APM/src/fun_eda_spatial_distribution_annualobs_laea.R")
-annual_spatial_dist(poll_conc = no2_e_all, eu_bnd = eu_bnd, 
-                    folder_subnote = 'elapse_ab')
-## subset samples (for multiple years or each year)
-subset_df_yrs <- function(obs_df, yr_target){
-   no2_e_sub <- obs_df %>% filter(year%in%yr_target)
-   no2_e_sub
-}
-#o# multiple years
-
+source("scr/fun_call_lib.R")
+source("scr/fun_read_data.R")
 #---------Test the bandwidth----------
 global_vars <- "no2_10MACC"
 
-regression_grd_cellsize <- c(80, 100, 200, 600, 1000, 1500, 2000)   #km
+regression_grd_cellsize <- c(10, 100, 200, 600, 1000, 1500, 2000)   #km
 kernels <- c('gaussian', 'exponential', 'bisquare', 'tricube')
 year_target <- 2009
 
@@ -60,46 +20,7 @@ library(foreach)
 cl <- parallel::makeCluster(5)
 doParallel::registerDoParallel(cl)
 foreach(i=seq_len(nrow(comb))) %dopar% {
-   library(dplyr)
-   library(raster)
-   library(sf)
-   library(car)  # for running slr
-   library(GWmodel)  #gwr
-   library(viridis)  #palette for raster
-   library(ranger) # Random forests
-   library(caret)  #data partition
-   library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
-   library(splitTools)
-   library(APMtools)
-   library(lme4) # linear mixed effect models
-   library(CAST) # For dividing training and test data (CreateSpacetimeFolds)
-   library(performance) #extract model performance matrix for lme
-   library(tmap)
-   seed <- 123
-   local_crs <- CRS("+init=EPSG:3035")
-   
-   eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
-   ## Read in data (elapse NO2 2010 with climate zones included)
-   elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
-                          encoding = "utf-8")
-   ## Read in data (airbase observations 1990s-2012)
-   no2 <- read.csv("../EXPANSE_APM/data/processed/ab_v8_yr_no2.csv")
-   # rename data
-   elapse_no2 <- rename(elapse_no2, station_european_code=ï..Station)
-   # reduce airbase data
-   no2 <- no2 %>% rename(year=statistics_year, obs=statistic_value)
-   ## subset stations that are included in the elapse (cause at this stage, we don't have the predictor maps...)
-   no2_e <- no2 %>% filter(no2$station_european_code%in%unique(elapse_no2$station_european_code))
-   no2_e_all <- left_join(no2_e, elapse_no2, by="station_european_code")
-
-   ## subset samples (for multiple years or each year)
-   subset_df_yrs <- function(obs_df, yr_target){
-      no2_e_sub <- obs_df %>% filter(year%in%yr_target)
-      no2_e_sub
-   }
-   #o# multiple years
-   # Mixed GWR
-   global_vars <- "no2_10MACC"
+   source("scr/fun_call_lib.R")
    
    #---------Test the bandwidth----------
    # Test the kernel function:
@@ -123,7 +44,7 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
    #f# stratified by station types, climate zones and/or years
    set.seed(seed)
    data_all$index <- 1:nrow(data_all)
-   train_sub <- stratified(data_all, c('type_of_st', 'climate_zone'), 0.8)
+   train_sub <- stratified(data_all, c('type_of_st', 'climateID'), 0.8)
    test_sub <- data_all[-train_sub$index, ]
    
    all(unique(train_sub$station_european_code)%in%unique(test_sub$station_european_code))
