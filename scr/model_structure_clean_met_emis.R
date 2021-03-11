@@ -1,37 +1,39 @@
-library(dplyr)
-library(tmap)
-library(raster)
-library(sf)
-library(car)  # for running slr
-library(GWmodel)  #gwr
-library(viridis)  #palette for raster
-library(ranger) # Random forests
-library(caret)  #data partition
-library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
-library(splitTools)
-library(APMtools)
-library(lme4) # linear mixed effect models
-library(CAST) # For dividing training and test data (CreateSpacetimeFolds)
-library(performance) #extract model performance matrix for lme
+source("scr/fun_call_lib.R")
 seed <- 123
 local_crs <- CRS("+init=EPSG:3035")
 
 eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
 ## Read in data (elapse NO2 2010 with climate zones included)
-elapse_no2 <- read.csv("../EXPANSE_predictor/data/raw/gee/elapse_2010_no2_met_geeExtract.csv",
+elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
                        encoding = "utf-8")
+## Read in data (airbase observations 1990s-2012)
+airbase <- read.csv("../EXPANSE_APM/data/processed/ab_v8_yr_checked.csv")
+no2 <- airbase %>% filter(component_caption=="NO2")
 # rename data
-elapse_no2 <- dplyr::rename(elapse_no2, station_european_code=station)
-# elapse_no2 %>% dplyr::select(NO2_2010, precip, pressure, temp, u, v,
-#                              sta_sum) %>% pairs()
+colnames(elapse_no2)[1] <- "station_european_code"
+# elapse_no2 <- rename(elapse_no2, station_european_code=ï..Station)
+# reduce airbase data
+no2 <- no2 %>% rename(year=statistics_year, obs=statistic_value)
+## subset stations that are included in the elapse (cause at this stage, we don't have the predictor maps...)
+no2_e <- no2 %>% filter(no2$station_european_code%in%unique(elapse_no2$station_european_code))
+no2_e_all <- left_join(no2_e, elapse_no2, by="station_european_code")
 
-# elapse_no2 <- elapse_no2 %>% rename(u_wind=u, v_wind=v)
-sta <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
-                encoding = "utf-8")
-# Read in Xcoord and Ycoord
-sta <- dplyr::rename(sta, station_european_code=ï..Station)
-elapse_no2 <- inner_join(elapse_no2 %>% dplyr::select("temp", "u_wind", "v_wind", "pressure", 
-                                                      "precip", "station_european_code"), sta)
+## subset samples (for multiple years or each year)
+subset_df_yrs <- function(obs_df, yr_target){
+   no2_e_sub <- obs_df %>% filter(year%in%yr_target)
+   no2_e_sub
+}
+no2_2010 <- subset_df_yrs(no2_e_all, 2010) # There are 2399-2375 observations available in elapse but not in airbase
+
+extra_dat <- read.csv("../EXPANSE_predictor/data/raw/gee/elapse_2010_no2_met_geeExtract.csv",
+                       encoding = "utf-8")
+extra_dat <- rename(extra_dat, station_european_code=station)
+extra_dat <- extra_dat %>% mutate(sta_sum = ifelse(is.na(sta_sum), 0, sta_sum))
+any(is.na(extra_dat))
+data_all <- inner_join(no2_2010, extra_dat %>% dplyr::select("temp", "u_wind", "v_wind", "pressure", "sta_sum",
+                                                      "precip", "station_european_code"))
+data_all <- data_all %>% mutate(wind_speed=(u_wind^2)+(v_wind^2))
+pairs(data_all %>% dplyr::select(wind_speed, u_wind, v_wind, pressure, sta_sum, precip, temp, obs))
 csv_names <- paste0('run2_met_emis_', 2010)   #2008:2012
 years <- as.list(2010)
 i=1
@@ -39,9 +41,7 @@ i=1
 csv_name <- csv_names[i]
 print("********************************************")
 print(csv_name)
-elapse_no2$year <- years[[i]]
-data_all <- elapse_no2
-data_all <- rename(data_all, obs=NO2_2010)
+data_all$year <- years[[i]]
 print(paste0("year: ", unique(data_all$year)))
 #f# subset cross-validation data (5-fold cross-validation)
 #f# stratified by station types, climate zones and/or years
@@ -49,12 +49,14 @@ set.seed(seed)
 data_all$index <- 1:nrow(data_all)
 train_sub <- stratified(data_all, c('type_of_st', 'zoneID'), 0.8)
 test_sub <- data_all[-train_sub$index, ]
+data_all <- rbind(train_sub, test_sub)
+boxplot(data_all$pressure)
 
 #f# SLR: select predictors
 source("scr/fun_call_predictor.R")
-# pred_c <- c(pred_c, "pressure", "temp", "sta_sum",
-#             "precip", "v_wind", "u_wind")
-# neg_pred <- c(neg_pred, "precip", "v_wind", "u_wind")
+pred_c <- c(pred_c, "pressure", "temp", "sta_sum",
+            "precip", "wind_speed")  #"v_wind", "u_wind"
+neg_pred <- c(neg_pred, "precip", "wind_speed") #"v_wind", "u_wind"
 #f# SLR: define/preprocess predictors (direction of effect)
 source("scr/fun_slr_proc_in_data.R")
 train_sub <- proc_in_data(train_sub, neg_pred)
@@ -119,7 +121,7 @@ train_df <- train_sub
 test_df <- test_sub
 pred_c_rf <- c(pred_c, "x_trun", "y_trun")
 x_varname = names(data_all %>% dplyr::select(matches(pred_c_rf), c("pressure", "temp",
-                                                                   "precip", "v_wind", "u_wind")))
+                                                                   "precip", "v_wind", "u_wind", "wind_speed")))
 print("RF predictors:")
 print(x_varname)
 ## LLO CV (small test for multiple years)
