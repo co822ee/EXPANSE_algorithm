@@ -1,19 +1,6 @@
 # This script is used for generating the coefficient surfaces 
-library(dplyr)
-library(raster)
-library(sf)
-library(car)  # for running slr
-library(GWmodel)  #gwr
-library(viridis)  #palette for raster
-library(ranger) # Random forests
-library(caret)  #data partition
-library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
-library(splitTools)
-library(APMtools)
-library(lme4) # linear mixed effect models
-library(CAST) # For dividing training and test data (CreateSpacetimeFolds)
-library(performance) #extract model performance matrix for lme
-library(tmap)
+source("scr/fun_call_lib.R")
+source("scr/fun_read_data.R")
 seed <- 123
 local_crs <- CRS("+init=EPSG:3035")
 
