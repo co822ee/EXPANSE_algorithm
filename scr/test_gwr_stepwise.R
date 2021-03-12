@@ -235,6 +235,53 @@ output
 if(any(diff(output$increR2)<0.01)) output <- output[-(which(diff(output$increR2)<0.01)+1),]
 write.table(output, paste0("data/workingData/stepGWR_", 
                            year_target, ".txt"), row.names = F)
+#-----how optimal nngb changes over selection steps-------
+output <- read.table(paste0("data/workingData/stepGWR_", 
+                            year_target, ".txt"), header = T)
+
+source("scr/fun_setupt_gwr.R")
+setup <- setup_gwr(train_sub, eu_bnd, 
+                   cellsize = reg_grdsize, local_crs = local_crs)
+sp_train <- setup[[1]]
+grd <- setup[[2]]
+DM <- setup[[3]]
+DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
+                rp.locat=coordinates(sp_train))
+
+var_i <- 1
+# nngb_l <- vector("numeric", length=length(output$variables))
+# Step-wise
+nngb_l <- lapply(seq_along(output$variables), function(var_i){
+   eq <- as.formula(paste0('obs~', paste(output$variables[1:var_i], collapse = "+")))
+   bw.gwr(eq, data=sp_train, approach = "CV", kernel = kernel_type,
+          adaptive = T, dMat = DM_1)
+})
+nngb_l %>% unlist()
+
+# one-by-one
+lapply(seq_along(output$variables), function(var_i){
+   eq <- as.formula(paste0('obs~', paste(output$variables[var_i], collapse = "+")))
+   bw.gwr(eq, data=sp_train, approach = "CV", kernel = kernel_type,
+          adaptive = T, dMat = DM_1)
+}) %>% unlist()
+
+#-------------p value evaluation----------
+output <- read.table(paste0("data/workingData/stepGWR_", 
+                            year_target, ".txt"), header = T)
+eq <- as.formula(paste0('obs~', paste(output$variables, collapse = "+")))
+source("scr/fun_setupt_gwr.R")
+setup <- setup_gwr(train_sub, eu_bnd, 
+                   cellsize = reg_grdsize, local_crs = local_crs)
+sp_train <- setup[[1]]
+grd <- setup[[2]]
+DM <- setup[[3]]
+DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
+                rp.locat=coordinates(sp_train))
+nngb <- bw.gwr(eq, data=sp_train, approach = "CV", kernel = kernel_type,
+               adaptive = T, dMat = DM_1)
+gwr_model <- gwr.basic(eq, sp_train,
+                       adaptive = T, bw=nngb, kernel=kernel_type, 
+                       F123.test = TRUE)
 
 #----------VIF evaluation----------
 output <- read.table(paste0("data/workingData/stepGWR_", 
@@ -307,6 +354,8 @@ gwr_plot$ncol <- 3
 mergeMap <- do.call(tmap_arrange, gwr_plot)
 tmap_save(mergeMap, filename = paste0('graph/gwr_coef/', csv_name, "_gwr-lcr.tiff"), 
           dpi=100, height=10, width=10, units='in')
+
+
 #---------evaluate output----------
 output <- read.table(paste0("data/workingData/stepGWR_", 
                             year_target, ".txt"), header = T)
