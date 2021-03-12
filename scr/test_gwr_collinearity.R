@@ -25,6 +25,24 @@ source("scr/fun_slr_proc_in_data.R")
 train_sub <- proc_in_data(train_sub, neg_pred)
 test_sub <- proc_in_data(test_sub, neg_pred)
 
+#----------hypothesis test (p-value)-------
+# output <- read.csv(paste0("data/workingData/SLR_summary_model_", 
+#                           csv_name, ".csv"), header = T)
+# eq <- as.formula(paste0('obs~', paste(output$variables[-1], collapse = "+")))
+# source("scr/fun_setupt_gwr.R")
+# setup <- setup_gwr(train_sub, eu_bnd, 
+#                    cellsize = reg_grdsize, local_crs = local_crs)
+# sp_train <- setup[[1]]
+# grd <- setup[[2]]
+# DM <- setup[[3]]
+# DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
+#                 rp.locat=coordinates(sp_train))
+# nngb <- bw.gwr(eq, data=sp_train, approach = "CV", kernel = kernel_type,
+#                adaptive = T, dMat = DM_1)
+# gwr_model <- gwr.basic(eq, sp_train, regression.points=grd,
+#                        adaptive = T, bw=nngb, dMat=DM, kernel=kernel_type)
+# t_test <- gwr.t.adjust(gwr_model)
+
 #----------VIF evaluation----------
 output <- read.csv(paste0("data/workingData/SLR_summary_model_", 
                             csv_name, ".csv"), header = T)
@@ -46,6 +64,10 @@ nngb <- bw.gwr(eq, data=sp_train, approach = "CV", kernel = kernel_type,
                adaptive = T, dMat = DM_1)
 gwr_collin <- gwr.collin.diagno(eq, sp_train, kernel = kernel_type, bw=nngb,
                                 adaptive = T, dMat = DM_1)
+gwr_collin %>% str
+# VIF spatially
+spplot(gwr_collin$SDF[1:5])
+(gwr_collin$SDF[1:5])
 which(gwr_collin$VIF>=3, arr.ind = T)
 which(gwr_collin$VIF>=5, arr.ind = T)
 which(gwr_collin$local_CN>=3)
@@ -68,6 +90,7 @@ gwr_lcr <- gwr.lcr(eq, sp_train, regression.points=grd,
 summary(gwr_lcr$SDF$Local_CN)
 gwr_model <- gwr.basic(eq, sp_train, regression.points=grd,
                        adaptive = T, bw=nngb, dMat=DM, kernel=kernel_type)
+print(gwr_model)
 # source('scr/fun_plot_gwr_coef.R')
 # plot_gwr_coef(i, gwr_lcr, paste0(csv_name, "_lcr20"), n_row = 3, n_col = 3, eu_bnd = eu_bnd)
 # plot_gwr_coef(i, gwr_model, csv_name, n_row = 2, n_col = 3, eu_bnd = eu_bnd)

@@ -1,5 +1,5 @@
 output_gwr_result <- function(gwr.res.t, train_data, test_data, local_crs,
-                              output_filename = csv_name, mixedGWR=F){
+                              output_filename = csv_name, mixedGWR=F, outputcsv=T){
    sp_train <- sp::SpatialPointsDataFrame(data = train_data,
                                           coords = cbind(train_data$Xcoord, train_data$Ycoord),
                                           proj4string = local_crs)
@@ -20,9 +20,11 @@ output_gwr_result <- function(gwr.res.t, train_data, test_data, local_crs,
    gwr_test_df$df_type <- 'test'
    gwr_df <- rbind(gwr_train_df, gwr_test_df)
    gwr_df$res <- gwr_df$obs - gwr_df$gwr
-   write.csv(gwr_df, 
-             paste0('data/workingData/GWR_result_all_', output_filename, '.csv'), 
-             row.names = F)
+   if(outputcsv){
+      write.csv(gwr_df, 
+                paste0('data/workingData/GWR_result_all_', output_filename, '.csv'), 
+                row.names = F)
+   }
    gwr_df
    
    # plot(gwr_df$gwr, gwr_df$obs)
