@@ -1,3 +1,5 @@
+# This script run the three models for multiple single years or multiple years
+# With Met available
 source("scr/fun_call_lib.R")
 source("scr/fun_read_data.R")
 #o# multiple years

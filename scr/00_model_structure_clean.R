@@ -1,3 +1,4 @@
+# This script run the three models for multiple single years or multiple years
 # library(dplyr)
 # library(tmap)
 # library(raster)
@@ -16,7 +17,8 @@
 source("scr/fun_call_lib.R")
 source("scr/fun_read_data.R")
 #o# multiple years
-
+subset_df_yrs(no2_e_all, 2010) %>% dim
+# [1] 2375  171
 # names <- paste0('run1_train_', c('2010', '09-11', '08-12'))
 # years <- list(2010, 2009:2011, 2008:2012)
 # csv_names <- paste0('run1_train_break_noxy', c(2002, 2004, 2006, 2008:2012))   #2008:2012
