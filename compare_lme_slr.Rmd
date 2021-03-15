@@ -55,7 +55,7 @@ subset_df_yrs <- function(obs_df, yr_target){
    no2_e_sub <- obs_df %>% filter(year%in%yr_target)
    no2_e_sub
 }
-csv_names <- paste0('run1_train_', c('09-11', '08-12', '06-10', '06-12'))
+csv_names <- paste0('run2_', c('09-11', '08-12', '06-10', '06-12'))
 years <- list(2009:2011, 2008:2012, 2006:2010, 2006:2012)
 lme_result <- lapply(paste0("data/workingData/LME_summary_model_", csv_names, ".csv") , read.csv)
 slr_result <- lapply(paste0("data/workingData/SLR_summary_model_", csv_names, ".csv") , read.csv)
@@ -197,6 +197,74 @@ pairs(plot_df, upper.panel=NULL)
 
 # add year as a predictor
 ```{r}
+tmp <- matrix(nrow=length(csv_names)*2, ncol=3)
+tmp_rowname <- vector("character", length=length(csv_names)*2)
+for(i in seq_along(years)){
+   
+   csv_name <- csv_names[i]
+   csv_name
+   no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[i]])
+   data_all <- no2_e_09_11
+   #f# subset cross-validation data (5-fold cross-validation)
+   #f# stratified by station types, climate zones and/or years
+   set.seed(seed)
+   data_all$index <- 1:nrow(data_all)
+   # Test only leave location out first 
+   # Method 1: (easier to use)
+   folds=CreateSpacetimeFolds(
+      data_all,
+      spacevar = "station_european_code",     # leave location out
+      timevar = NA,
+      k = 5,
+      class = NA,
+      seed = seed
+   )
+   train_sub <- data_all[folds$index[[1]], ]
+   test_sub <- data_all[folds$indexOut[[1]], ]
+   source("scr/fun_call_predictor.R")
+   #f# SLR: define/preprocess predictors (direction of effect)
+   source("scr/fun_slr_proc_in_data.R")
+   train_sub <- proc_in_data(train_sub, neg_pred)
+   test_sub <- proc_in_data(test_sub, neg_pred)
+   
+   eq_lme <- as.formula(paste0('obs~',
+                               paste(lme_result[[i]]$variables[-1], collapse = "+"),
+                               "+ (1|station_european_code) + (1|year)"))
+   lme_model <- lmer(eq_lme, train_sub)
+   
+   eq_slr <- as.formula(paste0('obs~',
+                               paste(slr_result[[i]]$variables[-1], collapse = "+")))
+   slr_model <- lm(eq_slr, train_sub)
+   
+   data_all2 <- rbind(train_sub %>% mutate(df_type="train"),
+                      test_sub %>% mutate(df_type='test'))
+   
+   
+   # the prediction will use the unconditional (population-level) values for data with previously unobserved levels (or NAs).
+   source("scr/fun_gen_pred_lme.R")
+   lme_prediction <- gen_pred_lme(lme_model, data_all2, "obs")
+   source("scr/fun_gen_pred_df.R")
+   slr_prediction <- gen_pred_df(slr_model, data_all2, "obs")
+   
+   tb1 <- error_matrix(with(lme_prediction, obs[df_type=='test']), with(lme_prediction, lme[df_type=='test']))[c(1,5,7)]
+   # print(paste0("slr: test data ", substr(csv_names[[i]], 12, nchar(csv_names[[i]]))))
+   tb2 <- error_matrix(with(slr_prediction, obs[df_type=='test']), with(slr_prediction, slr[df_type=='test']))[c(1,5,7)] 
+   tmp[seq(1,by=2, length.out = length(csv_names))[i],] <- tb1
+   tmp_rowname[seq(1,by=2, length.out = length(csv_names))[i]] <- paste0(substr(csv_names[i], 6, nchar(csv_names[i])), "_lme")
+   tmp[seq(2,by=2, length.out = length(csv_names))[i],] <- tb2
+   tmp_rowname[seq(2,by=2, length.out = length(csv_names))[i]] <- paste0(substr(csv_names[i], 6, nchar(csv_names[i])), "_slr")
+   colnames(tmp) <- names(tb2)
+}
+rownames(tmp) <- tmp_rowname
+tbl1 <- tmp %>% kbl
+
+for (i in seq_along(1:(nrow(tmp)/2))) {
+  tbl1 <- row_spec(tbl1, ((i-1)*2+1):(i*2), background = spec_color((nrow(tmp)/2):1)[i])
+}
+tbl1
+
+print("add year as a predictor")
+
 tmp <- matrix(nrow=length(csv_names)*2, ncol=3)
 tmp_rowname <- vector("character", length=length(csv_names)*2)
 for(i in seq_along(years)){
