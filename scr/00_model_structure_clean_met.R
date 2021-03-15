@@ -5,47 +5,58 @@ source("scr/fun_read_data.R")
 #o# multiple years
 subset_df_yrs(no2_e_all, 2010) %>% dim
 # [1] 2375  171
-# names <- paste0('run2_met_', c('2010', '09-11', '08-12'))
-# years <- list(2010, 2009:2011, 2008:2012)
 # csv_names <- paste0('run1_train_break_noxy', c(2002, 2004, 2006, 2008:2012))   #2008:2012
-csv_names <- paste0('run2_met_', c(2002, 2004, 2006, 2008:2012))   #2008:2012
-years <- as.list(c(2002, 2004, 2006, 2008:2012))
+# Multiple single years:
+# csv_names <- paste0('run2_met_', c(2002, 2004, 2006, 2008:2012))   #2008:2012
+# years <- as.list(c(2002, 2004, 2006, 2008:2012))
+# Multiple years:
+csv_names <- paste0('run2_met_',c('08-10', '09-11', '10-12', '08-12'))   #2008:2012
+years <- list(2008:2010, 2009:2011, 2010:2012, 2008:2012)
+
 library(doParallel)
 library(foreach)
 cluster_no <- 4
 cl <- parallel::makeCluster(cluster_no)
 doParallel::registerDoParallel(cl)
 foreach(i = seq_along(csv_names)) %dopar% {
-   library(dplyr)
-   library(tmap)
-   library(raster)
-   library(sf)
-   library(car)  # for running slr
-   library(GWmodel)  #gwr
-   library(viridis)  #palette for raster
-   library(ranger) # Random forests
-   library(caret)  #data partition
-   library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
-   library(splitTools)
-   library(APMtools)
-   library(lme4) # linear mixed effect models
-   library(CAST) # For dividing training and test data (CreateSpacetimeFolds)
-   library(performance) #extract model performance matrix for lme
+   source("scr/fun_call_lib.R")
    csv_name <- csv_names[i]
    print("********************************************")
    print(csv_name)
    no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[i]])
    data_all <- no2_e_09_11
-   met <- read.csv(paste0("../EXPANSE_predictor/data/raw/gee/elapse_no2_met_", years[[i]], ".csv"))
+   if(length(years[[i]]>1)){
+      years[[i]]
+      met_l <- lapply(paste0("../EXPANSE_predictor/data/raw/gee/elapse_no2_met_", years[[i]], ".csv"), read.csv)
+      met <- do.call(rbind, met_l)
+   }else{
+      met <- read.csv(paste0("../EXPANSE_predictor/data/raw/gee/elapse_no2_met_", years[[i]], ".csv")) 
+   }
    met <- rename(met, station_european_code=Station) %>% mutate(wind_speed=(u_wind^2)+(v_wind^2))
-   data_all <- inner_join(data_all, met %>% dplyr::select(-system.index, -.geo, -year))
+   data_all <- inner_join(data_all, met %>% dplyr::select(-system.index, -.geo), by=c("station_european_code", "year"))
    print(paste0("year: ", unique(data_all$year)))
    #f# subset cross-validation data (5-fold cross-validation)
    #f# stratified by station types, climate zones and/or years
    set.seed(seed)
    data_all$index <- 1:nrow(data_all)
-   train_sub <- stratified(data_all, c('type_of_st', 'zoneID'), 0.8)
-   test_sub <- data_all[-train_sub$index, ]
+   if(length(years[[i]])>1){
+      # Test only leave location out first 
+      # Method 1: (easier to use)
+      folds=CreateSpacetimeFolds(
+         data_all,
+         spacevar = "station_european_code",     # leave location out
+         timevar = NA,
+         k = 5,
+         class = NA,
+         seed = seed
+      )
+      
+      train_sub <- data_all[folds$index[[1]], ]
+      test_sub <- data_all[folds$indexOut[[1]], ]
+   }else{
+      train_sub <- stratified(data_all, c('type_of_st', 'zoneID'), 0.8)
+      test_sub <- data_all[-train_sub$index, ]
+   }
    
    #f# SLR: select predictors
    source("scr/fun_call_predictor.R")
@@ -114,7 +125,12 @@ foreach(i = seq_along(csv_names)) %dopar% {
    # test_df <- data_all[index$test, ]
    train_df <- train_sub
    test_df <- test_sub
-   pred_c_rf <- c(pred_c, "x_trun", "y_trun", "u_wind", "v_wind")
+   if(length(years[[i]])>1){
+      pred_c_rf <- c(pred_c, "x_trun", "y_trun", "u_wind", "v_wind",
+                     "year")
+   }else{
+      pred_c_rf <- c(pred_c, "x_trun", "y_trun", "u_wind", "v_wind")
+   }
    x_varname = names(data_all %>% dplyr::select(matches(pred_c_rf)))
    print("RF predictors:")
    print(x_varname)
