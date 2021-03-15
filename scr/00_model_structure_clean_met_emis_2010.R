@@ -1,3 +1,5 @@
+# This script run the three models for year 2010
+# With Met and emission points available
 source("scr/fun_call_lib.R")
 seed <- 123
 local_crs <- CRS("+init=EPSG:3035")

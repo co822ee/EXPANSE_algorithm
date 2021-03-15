@@ -3,8 +3,8 @@ source("scr/fun_read_data.R")
 source("scr/fun_setupt_gwr.R")
 # train_expanse <- stratified(no2[no2$year==2010,], c('type_of_st', 'zoneID'), 0.8)
 # test_expanse <- no2[no2$year==2010,][-train_expanse$index, ]
-setup <- setup_gwr(train_expanse, eu_bnd, 
-                   cellsize = reg_grdsize[i], local_crs = local_crs)
+# setup <- setup_gwr(train_expanse, eu_bnd, 
+#                    cellsize = reg_grdsize[i], local_crs = local_crs)
 setup_test <- setup_gwr(train_sub, eu_bnd, 
                      cellsize = reg_grdsize[8], local_crs = local_crs) #600km
 dm_test <- setup_test[[3]]

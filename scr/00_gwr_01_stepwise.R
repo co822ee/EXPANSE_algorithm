@@ -232,8 +232,17 @@ while(step_i<=10){  #(as.numeric(output[step_i,2])-as.numeric(output[step_i-1,2]
    }
 }
 output
+# Exclusion
+# R2 improvement less than 1%
 if(any(diff(output$increR2)<0.01)) output <- output[-(which(diff(output$increR2)<0.01)+1),]
-write.table(output, paste0("data/workingData/stepGWR_", 
+gwr_model <- gwr.basic(eq, sp_train,
+                       adaptive = T, bw=nngb, kernel=kernel_type, 
+                       F123.test = TRUE)
+# p-value larger than 0.1
+exc_var <- output$variables[which(gwr_model$Ftests$F3.test[,4]>0.1)-1]
+output_new <- output[!(output$variables%in%exc_var), ]
+
+write.table(output_new, paste0("data/workingData/stepGWR_", 
                            year_target, ".txt"), row.names = F)
 #-----how optimal nngb changes over selection steps-------
 output <- read.table(paste0("data/workingData/stepGWR_", 
@@ -268,6 +277,7 @@ lapply(seq_along(output$variables), function(var_i){
 #-------------p value evaluation----------
 output <- read.table(paste0("data/workingData/stepGWR_", 
                             year_target, ".txt"), header = T)
+read.csv(paste0("data/workingData/SLR_summary_model_run2_", year_target, ".csv"))[,1]
 eq <- as.formula(paste0('obs~', paste(output$variables, collapse = "+")))
 source("scr/fun_setupt_gwr.R")
 setup <- setup_gwr(train_sub, eu_bnd, 
@@ -282,7 +292,19 @@ nngb <- bw.gwr(eq, data=sp_train, approach = "CV", kernel = kernel_type,
 gwr_model <- gwr.basic(eq, sp_train,
                        adaptive = T, bw=nngb, kernel=kernel_type, 
                        F123.test = TRUE)
+# Exclude the variable that has p-value larger than 0.1
+exc_var <- output$variables[which(gwr_model$Ftests$F3.test[,4]>0.1)-1]
+output[!(output$variables%in%exc_var), ]
 
+gwr_model$SDF %>% names
+spplot(gwr_model$SDF[names(gwr_model$SDF)[grep("SE",names(gwr_model$SDF))]])
+spplot(gwr_model$SDF[names(gwr_model$SDF)[grep("Intercept",names(gwr_model$SDF))]])
+spplot(gwr_model$SDF[names(gwr_model$SDF)[grep("ROADS_EU_5p",names(gwr_model$SDF))]])
+spplot(gwr_model$SDF["Local_R2"])
+spplot(gwr_model$SDF["y"])
+spplot(gwr_model$SDF["yhat"])
+spplot(gwr_model$SDF["residual"])
+spplot(gwr_model$SDF["RES_12_SE"])
 #----------VIF evaluation----------
 output <- read.table(paste0("data/workingData/stepGWR_", 
                             year_target, ".txt"), header = T)
