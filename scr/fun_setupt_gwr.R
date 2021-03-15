@@ -10,7 +10,8 @@ setup_gwr <- function(train_data, eu_bnd, cellsize, local_crs){
    
    grd2 <- SpatialGrid(GridTopology(c(xmin,ymin),
                                     c(cellsize,cellsize),
-                                    c(floor((xmax-xmin)/cellsize)+2,floor((ymax-ymin)/cellsize)+2)))
+                                    c(floor((xmax-xmin)/cellsize)+2,floor((ymax-ymin)/cellsize)+2)),
+                       proj4string = crs(eu_bnd))
    
    plot(grd2)
    plot(eu_bnd[1], pch=16, col='firebrick',add=TRUE)
