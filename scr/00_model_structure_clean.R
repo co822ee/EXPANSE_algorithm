@@ -1,19 +1,4 @@
 # This script run the three models for multiple single years or multiple years
-# library(dplyr)
-# library(tmap)
-# library(raster)
-# library(sf)
-# library(car)  # for running slr
-# library(GWmodel)  #gwr
-# library(viridis)  #palette for raster
-# library(ranger) # Random forests
-# library(caret)  #data partition
-# library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
-# library(splitTools)
-# library(APMtools)
-# library(lme4) # linear mixed effect models
-# library(CAST) # For dividing training and test data (CreateSpacetimeFolds)
-# library(performance) #extract model performance matrix for lme
 source("scr/fun_call_lib.R")
 source("scr/fun_read_data.R")
 #o# multiple years
@@ -22,29 +7,19 @@ subset_df_yrs(no2_e_all, 2010) %>% dim
 # names <- paste0('run1_train_', c('2010', '09-11', '08-12'))
 # years <- list(2010, 2009:2011, 2008:2012)
 # csv_names <- paste0('run1_train_break_noxy', c(2002, 2004, 2006, 2008:2012))   #2008:2012
+# Multiple single years
 csv_names <- paste0('run2_', c(2002, 2004, 2006, 2008:2012))   #2008:2012
 years <- as.list(c(2002, 2004, 2006, 2008:2012))
+# Multiple years
+csv_names <- paste0('run2_',c('08-10', '09-11', '10-12', '08-12'))   #2008:2012
+years <- list(2008:2010, 2009:2011, 2010:2012, 2008:2012)
 library(doParallel)
 library(foreach)
 cluster_no <- 4
 cl <- parallel::makeCluster(cluster_no)
 doParallel::registerDoParallel(cl)
 foreach(i = seq_along(csv_names)) %dopar% {
-   library(dplyr)
-   library(tmap)
-   library(raster)
-   library(sf)
-   library(car)  # for running slr
-   library(GWmodel)  #gwr
-   library(viridis)  #palette for raster
-   library(ranger) # Random forests
-   library(caret)  #data partition
-   library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
-   library(splitTools)
-   library(APMtools)
-   library(lme4) # linear mixed effect models
-   library(CAST) # For dividing training and test data (CreateSpacetimeFolds)
-   library(performance) #extract model performance matrix for lme
+   source('scr/fun_call_lib.R')
    csv_name <- csv_names[i]
    print("********************************************")
    print(csv_name)
@@ -55,8 +30,24 @@ foreach(i = seq_along(csv_names)) %dopar% {
    #f# stratified by station types, climate zones and/or years
    set.seed(seed)
    data_all$index <- 1:nrow(data_all)
-   train_sub <- stratified(data_all, c('type_of_st', 'zoneID'), 0.8)
-   test_sub <- data_all[-train_sub$index, ]
+   if(length(years[[i]])>1){
+      # Test only leave location out first 
+      # Method 1: (easier to use)
+      folds=CreateSpacetimeFolds(
+         data_all,
+         spacevar = "station_european_code",     # leave location out
+         timevar = NA,
+         k = 5,
+         class = NA,
+         seed = seed
+      )
+      
+      train_sub <- data_all[folds$index[[1]], ]
+      test_sub <- data_all[folds$indexOut[[1]], ]
+   }else{
+      train_sub <- stratified(data_all, c('type_of_st', 'zoneID'), 0.8)
+      test_sub <- data_all[-train_sub$index, ]
+   }
    
    #f# SLR: select predictors
    source("scr/fun_call_predictor.R")
