@@ -10,7 +10,7 @@ packages <- c("SpatialML", "ranger", "GWmodel", "car", "lme4", "performance",
               "CAST",
               "tidyr", "dplyr", "splitstackshape", # stratified() 
               "raster", "sf",
-              "ggplot2", "tmap", "viridis"
+              "ggplot2", "tmap", "viridis","gridExtra"
               )
 ipak(packages)
 # install_github("mengluchu/APMtools") 
