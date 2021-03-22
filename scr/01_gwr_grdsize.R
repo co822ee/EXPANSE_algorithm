@@ -8,7 +8,7 @@ source("scr/fun_read_data.R")
 
 regression_grd_cellsize <- c(10, 20, 50, 80, 100, 200, 500, 600, 1000, 1500, 2000)   #km
 kernels <- c('exponential')
-year_target <- 2008
+year_target <- 2010
 
 comb <- expand.grid(regression_grd_cellsize=regression_grd_cellsize, kernel_type=kernels) %>% 
    mutate(csv_name = paste0('testGWR_', regression_grd_cellsize, '_', kernel_type, '_', year_target))
@@ -36,7 +36,6 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
    data_all$index <- 1:nrow(data_all)
    train_sub <- stratified(data_all, c('type_of_st', 'zoneID'), 0.8)
    test_sub <- data_all[-train_sub$index, ]
-   data_all <- rbind(train_sub, test_sub)
    
    all(unique(train_sub$station_european_code)%in%unique(test_sub$station_european_code))
    all_sub <- rbind(train_sub %>% mutate(df_type='train'), 
@@ -62,6 +61,7 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
    source("scr/fun_slr_proc_in_data.R")
    train_sub <- proc_in_data(train_sub, neg_pred)
    test_sub <- proc_in_data(test_sub, neg_pred)
+   data_all <- rbind(train_sub, test_sub)
    #------------------Above code is needed for all algorithms----------------------
    #---------#f# SLR: train SLR -----------
    slr <- read.csv(paste0("data/workingData/SLR_summary_model_run2_", years[[i]],".csv"))
@@ -88,19 +88,20 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
    # plot(grd)
    # Calibrate bandwidth using CV
    # The calibration is not influenced by the regression grid cell size
-   if(!file.exists(paste0("data/workingData/GWR_dist_", 
-                          kernel_type[i], "_", years[[i]], ".txt"))){
-      DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
-                      rp.locat=coordinates(sp_train))
-      # 
-      bandwidth_calibr <- bw.gwr(eq, data=sp_train, approach = "CV", kernel = kernel_type[i],
-                                 adaptive = F, dMat = DM_1)
-      write.table(bandwidth_calibr, paste0("data/workingData/GWR_dist_", 
-                                           kernel_type[i], "_", years[[i]], ".txt"))
-   }
+   # if(!file.exists(paste0("data/workingData/GWR_dist_", 
+   #                        kernel_type[i], "_", years[[i]], ".txt"))){
+   #    DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
+   #                    rp.locat=coordinates(sp_train))
+   #    # 
+   #    bandwidth_calibr <- bw.gwr(eq, data=sp_train, approach = "CV", kernel = kernel_type[i],
+   #                               adaptive = F, dMat = DM_1)
+   #    write.table(bandwidth_calibr, paste0("data/workingData/GWR_dist_", 
+   #                                         kernel_type[i], "_", years[[i]], ".txt"))
+   # }
    
    if(!file.exists(paste0("data/workingData/GWR_nngb_", 
-                          kernel_type[i], "_", years[[i]], ".txt"))){
+                          kernel_type[i], "_", years[[i]], ".txt"))&(!file.exists(paste0("data/workingData/GWR_nngb_run2_", 
+                                                                                        years[[i]], ".txt")))){
       DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
                       rp.locat=coordinates(sp_train))
       # 
@@ -108,15 +109,24 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
                      adaptive = T, dMat = DM_1)
       write.table(nngb, paste0("data/workingData/GWR_nngb_", 
                                kernel_type[i], "_", years[[i]], ".txt"))
+   }else{
+      if(file.exists(paste0("data/workingData/GWR_nngb_run2_", 
+                              years[[i]], ".txt"))){
+         nngb <- read.table(paste0("data/workingData/GWR_nngb_run2_", 
+                                  years[[i]], ".txt"))[,1]
+         
+      }else{
+         nngb <- read.table(paste0("data/workingData/GWR_nngb_", 
+                                   kernel_type[i], "_", years[[i]], ".txt"))[,1]
+      }
    }
    
    # nngb %>% print()
    # source("scr/fun_gwr.R")
-   bandwidth_calibr <- read.table(paste0("data/workingData/GWR_dist_", 
-                                         kernel_type[i], "_", years[[i]], ".txt"))[,1]
+   # bandwidth_calibr <- read.table(paste0("data/workingData/GWR_dist_", 
+   #                                       kernel_type[i], "_", years[[i]], ".txt"))[,1]
    
-   nngb <- read.table(paste0("data/workingData/GWR_nngb_", 
-                             kernel_type[i], "_", years[[i]], ".txt"))[,1]
+
 
    gwr_model_ad <- tryCatch(gwr.basic(eq,
                                       data=sp_train,
@@ -126,19 +136,19 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
                                       dMat=DM,
                                       kernel=kernel_type[i]),
                             error=function(e) T)
-   ncol(DM)
-   grd_i=13
-   gw.weight(DM[,grd_i], nngb, kernel_type[i], T) %>% hist  #grd_i is the regression point index.
    
+   # grd_i=13
+   # gw.weight(DM[,grd_i], nngb, kernel_type[i], T) %>% hist  #grd_i is the regression point index.
+   # 
+   # 
+   # if(!file.exists(paste0("data/workingData/GWR_max_w_", 
+   #                        kernel_type[i], "_", years[[i]], ".txt"))){
+   #    max_w <- lapply(1:ncol(DM), function(grd_i) gw.weight(DM[,grd_i], nngb, kernel_type[i], T) %>% max)
+   #    write.table(unlist(max_w), paste0("data/workingData/GWR_max_w_", 
+   #                              reg_grdsize[i], "_", years[[i]], ".txt"), row.names = F)
+   # }
+   # hist(unlist(max_w))
    
-   if(!file.exists(paste0("data/workingData/GWR_max_w_", 
-                          kernel_type[i], "_", years[[i]], ".txt"))){
-      max_w <- lapply(1:ncol(DM), function(grd_i) gw.weight(DM[,grd_i], nngb, kernel_type[i], T) %>% max)
-      write.table(unlist(max_w), paste0("data/workingData/GWR_max_w_", 
-                                reg_grdsize[i], "_", years[[i]], ".txt"), row.names = F)
-   }
-   
-   hist(unlist(max_w))
    # error: inv(): matrix seems singular
    if(!(typeof(gwr_model_ad)=='logical')){
       #f# GWR: perform cross-validation
@@ -171,6 +181,10 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
       plot_gwr_coef(i, gwr_model_ad, csv_name = paste0(csv_name, "_ad"), 
                     n_row = 3, n_col = 3, eu_bnd=eu_bnd)
       
+      # Output surface
+      if(!dir.exists("data/workingData/gwr_coef")) dir.create("data/workingData/gwr_coef")
+      writeRaster(stack(gwr_model_ad$SDF), paste0("data/workingData/gwr_coef/", csv_name, ".tif"))
+      
    }else{
       if(!file.exists('data/workingData/gwr_failed.txt')){
          write.table(csv_name, "data/workingData/gwr_failed.txt",
@@ -180,8 +194,6 @@ foreach(i=seq_len(nrow(comb))) %dopar% {
                      sep = ",", row.names = F, col.names = F, append = T)
       }
    }
-   
-   
 }
 parallel::stopCluster(cl)
 
