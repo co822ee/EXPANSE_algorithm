@@ -23,7 +23,6 @@ set.seed(seed)
 data_all$index <- 1:nrow(data_all)
 train_sub <- stratified(data_all, c('type_of_st', 'zoneID'), 0.8)
 test_sub <- data_all[-train_sub$index, ]
-data_all <- rbind(train_sub, test_sub)
 # --> yes indeed the stations are not the same in training and test data
 #TODO we need to look at the groups separately or in combined?
 #f# SLR: select predictors
@@ -32,6 +31,7 @@ source("scr/fun_call_predictor.R")
 source("scr/fun_slr_proc_in_data.R")
 train_sub <- proc_in_data(train_sub, neg_pred)
 test_sub <- proc_in_data(test_sub, neg_pred)
+data_all <- rbind(train_sub, test_sub)
 
 #--------global and local---------
 output <- read.table(paste0("data/workingData/stepGWR_", 
