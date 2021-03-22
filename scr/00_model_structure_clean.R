@@ -11,8 +11,8 @@ subset_df_yrs(no2_e_all, 2010) %>% dim
 csv_names <- paste0('run2_', c(2002, 2004, 2006, 2008:2012))   #2008:2012
 years <- as.list(c(2002, 2004, 2006, 2008:2012))
 # Multiple years
-csv_names <- paste0('run2_',c('08-10', '09-11', '10-12', '08-12'))   #2008:2012
-years <- list(2008:2010, 2009:2011, 2010:2012, 2008:2012)
+# csv_names <- paste0('run2_',c('08-10', '09-11', '10-12', '08-12'))   #2008:2012
+# years <- list(2008:2010, 2009:2011, 2010:2012, 2008:2012)
 library(doParallel)
 library(foreach)
 cluster_no <- 4
@@ -24,30 +24,15 @@ foreach(i = seq_along(csv_names)) %dopar% {
    print("********************************************")
    print(csv_name)
    no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[i]])
-   data_all <- no2_e_09_11
+   # data_all <- no2_e_09_11
    print(paste0("year: ", unique(no2_e_09_11$year)))
-   #f# subset cross-validation data (5-fold cross-validation)
-   #f# stratified by station types, climate zones and/or years
-   set.seed(seed)
-   data_all$index <- 1:nrow(data_all)
-   if(length(years[[i]])>1){
-      # Test only leave location out first 
-      # Method 1: (easier to use)
-      folds=CreateSpacetimeFolds(
-         data_all,
-         spacevar = "station_european_code",     # leave location out
-         timevar = NA,
-         k = 5,
-         class = NA,
-         seed = seed
-      )
-      
-      train_sub <- data_all[folds$index[[1]], ]
-      test_sub <- data_all[folds$indexOut[[1]], ]
-   }else{
-      train_sub <- stratified(data_all, c('type_of_st', 'zoneID'), 0.8)
-      test_sub <- data_all[-train_sub$index, ]
-   }
+   source("scr/fun_create_fold.R")
+   data_all <- create_fold(no2_e_09_11, seed)
+   # Test the reproducibility:
+   # data_all2 <- create_fivefold(no2_e_09_11, seed)
+   # identical(data_all$nfold, data_all2$nfold)
+   test_sub <- data_all[data_all$nfold==fold_i,]
+   train_sub <- data_all[-test_sub$index, ] #data_all$index starts from 1 to the length.
    
    #f# SLR: select predictors
    source("scr/fun_call_predictor.R")
