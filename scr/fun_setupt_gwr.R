@@ -13,8 +13,8 @@ setup_gwr <- function(train_data, eu_bnd, cellsize, local_crs){
                                     c(floor((xmax-xmin)/cellsize)+2,floor((ymax-ymin)/cellsize)+2)),
                        proj4string = crs(eu_bnd))
    
-   plot(grd2)
-   plot(eu_bnd[1], pch=16, col='firebrick',add=TRUE)
+   # plot(grd2)
+   # plot(eu_bnd[1], pch=16, col='firebrick',add=TRUE)
    DM <- gw.dist(dp.locat=coordinates(sp_train),
                  rp.locat=coordinates(grd2))
    list(sp_train, grd2, DM)
