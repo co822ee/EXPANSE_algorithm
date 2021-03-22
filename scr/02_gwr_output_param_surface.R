@@ -25,7 +25,7 @@ subset_df_yrs <- function(obs_df, yr_target){
 }
 #---------Test the bandwidth----------
 # Test the kernel function:
-regression_grd_cellsize <- 200  #km
+regression_grd_cellsize <-  50  #km
 kernel_type <- 'exponential'
 year_target <- 2010
 out_dir <- "data/workingData/gwr_coef_surface/"
@@ -84,19 +84,21 @@ plot(sp_train, add=T)
 # plot(grd)
 # Calibrate bandwidth using CV
 # The calibration is not influenced by the regression grid cell size
-if(!file.exists(paste0("data/workingData/GWR_dist_", 
-                       kernel_type, "_", year_target, ".txt"))){
-   DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
-                   rp.locat=coordinates(sp_train))
-   # 
-   bandwidth_calibr <- bw.gwr(eq, data=sp_train, approach = "CV", kernel = kernel_type,
-                              adaptive = F, dMat = DM_1)
-   write.table(bandwidth_calibr, paste0("data/workingData/GWR_dist_", 
-                                        kernel_type, "_", year_target, ".txt"))
-}
+# if(!file.exists(paste0("data/workingData/GWR_dist_", 
+#                        kernel_type, "_", year_target, ".txt"))){
+#    DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
+#                    rp.locat=coordinates(sp_train))
+#    # 
+#    bandwidth_calibr <- bw.gwr(eq, data=sp_train, approach = "CV", kernel = kernel_type,
+#                               adaptive = F, dMat = DM_1)
+#    write.table(bandwidth_calibr, paste0("data/workingData/GWR_dist_", 
+#                                         kernel_type, "_", year_target, ".txt"))
+# }
 
-if(!file.exists(paste0("data/workingData/GWR_nngb_", 
-                       kernel_type, "_", year_target, ".txt"))){
+if((!file.exists(paste0("data/workingData/GWR_nngb_", 
+                       kernel_type, "_", year_target, ".txt")))&
+   (!file.exists(paste0("data/workingData/GWR_nngb_run2_", 
+                         year_target, ".txt")))){
    DM_1 <- gw.dist(dp.locat=coordinates(sp_train),
                    rp.locat=coordinates(sp_train))
    # 
@@ -104,25 +106,30 @@ if(!file.exists(paste0("data/workingData/GWR_nngb_",
                   adaptive = T, dMat = DM_1)
    write.table(nngb, paste0("data/workingData/GWR_nngb_", 
                             kernel_type, "_", year_target, ".txt"))
+}else{
+   if(file.exists(paste0("data/workingData/GWR_nngb_", 
+                           kernel_type, "_", year_target, ".txt"))){
+      nngb <- read.table(paste0("data/workingData/GWR_nngb_", 
+                                kernel_type, "_", year_target, ".txt"))[,1]
+   }else{
+      nngb <- read.table(paste0("data/workingData/GWR_nngb_run2_", 
+                                year_target, ".txt"))[,1]
+   }
+   
 }
 
 # nngb %>% print()
 # source("scr/fun_gwr.R")
-bandwidth_calibr <- read.table(paste0("data/workingData/GWR_dist_", 
-                                      kernel_type, "_", year_target, ".txt"))[,1]
-# nngb <- read.table(paste0("data/workingData/GWR_nngb_run1_train_break_noxy", 
-#                           year_target,".txt"))[,1]
-
-nngb <- read.table(paste0("data/workingData/GWR_nngb_", 
-                          kernel_type, "_", year_target, ".txt"))[,1]
-gwr_model <- tryCatch(gwr.basic(eq,
-                                data=sp_train,
-                                regression.points=grd,
-                                adaptive = F,
-                                bw=bandwidth_calibr,
-                                dMat=DM,
-                                kernel=kernel_type), 
-                      error=function(e) T)
+# bandwidth_calibr <- read.table(paste0("data/workingData/GWR_dist_", 
+#                                       kernel_type, "_", year_target, ".txt"))[,1]
+# gwr_model <- tryCatch(gwr.basic(eq,
+#                                 data=sp_train,
+#                                 regression.points=grd,
+#                                 adaptive = F,
+#                                 bw=bandwidth_calibr,
+#                                 dMat=DM,
+#                                 kernel=kernel_type), 
+#                       error=function(e) T)
 gwr_model_ad <- tryCatch(gwr.basic(eq,
                                    data=sp_train,
                                    regression.points=grd,
