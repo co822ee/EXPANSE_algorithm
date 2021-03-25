@@ -1,0 +1,9 @@
+dp.locat <- coordinates(data)
+rp.locat <- coordinates(regression.points)
+dist.vi <- dMat[, i]
+W.i <- gw.weight(dist.vi, bw, kernel, adaptive)
+# Calculate a weight vector(matrix) from a distance vector(matrix). Using the specify kernel and bandwidth
+
+CV <- gwr.cv.contrib(bw, x, y, kernel, adaptive, 
+            dp.locat, p, theta, longlat, dMat)
+# Cross-validation data at each observation location for a basic GWR model. This function finds the individual cross-validation score at each observation location, for a basic GWR model, for a specified bandwidth. These data can be mapped to detect unusually high or low cross-validations scores.
