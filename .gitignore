@@ -2,10 +2,13 @@
 /bin
 /results
 # exclude data from source control by default
-/data
-/data/temp
-/data/processed
-/data/raw
+#/data
+/data/workingData/archive
+/data/workingData/archive_2
 .Rproj.user
 /results
 /scr/archive
+archive/
+*.html
+*.pdf
+*.tiff
