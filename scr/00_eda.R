@@ -110,9 +110,10 @@ sf_gwr <- st_as_sf(gw.ss.bx2$SDF)
 
 ggplot(data=eu_bnd) +
    geom_sf() +
-   geom_sf(data = sf_gwr, aes(fill=Spearman_rho_ROADS_EU_10p.MAJRDS_EU_10p),
+   geom_sf(data = sf_gwr, #aes(fill=Spearman_rho_ROADS_EU_10p.MAJRDS_EU_10p),
            size = 2,
-           shape = 21, )+
+           # shape = 21, 
+           )+
    scale_fill_viridis_c()
 # https://www.r-spatial.org/r/2018/10/25/ggplot2-sf-2.html
 

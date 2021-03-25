@@ -31,7 +31,7 @@ write_output_5csv <- function(year_i){
 lapply(seq_along(csv_names), write_output_5csv)
 
 
-# test_grid
+#---- test_grid----
 regression_grd_cellsize <- c(10, 20, 50, 80, 100, 200, 500, 600, 1000, 1500, 2000)   #km
 kernels <- c('exponential')
 year_target <- 2010

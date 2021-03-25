@@ -48,22 +48,22 @@ for(yr_i in seq_along(csv_names)){
       # check the predictor variables
       print("SLR predictors:")
       train_sub %>% dplyr::select(matches(pred_c)) %>% names()
-      slr_result <- slr(train_sub$obs, train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame(), 
+      slr_result <- slr(train_sub$obs, train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame(),
                         cv_n = csv_name_fold)
       slr_model <- slr_result[[3]]
       #f# SLR: test SLR
       source("scr/fun_output_slr_result.R")
       slr_poll <- output_slr_result(slr_model, test_df = test_sub, train_df = train_sub,
                                     output_filename = csv_name_fold, obs_varname = 'obs')
-      
+
       slr_df <- slr_poll[[1]]
-      
+
       #f# SLR: perform cross-validation
-      
+
       #-----------#f# GWR: train GWR----------
       print("GWR")
       source("scr/fun_setupt_gwr.R")
-      setup <- setup_gwr(train_sub, eu_bnd, 
+      setup <- setup_gwr(train_sub, eu_bnd,
                          cellsize = 200000, local_crs = local_crs)
       sp_train <- setup[[1]]
       grd <- setup[[2]]
@@ -77,12 +77,12 @@ for(yr_i in seq_along(csv_names)){
       source("scr/fun_output_gwr_result.R")
       gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, local_crs,
                                   output_filename = csv_name_fold)
-      
+
       # plot gwr surface
       ncol(gwr_model$SDF) %>% print()  # the number of predictors selected
       source('scr/fun_plot_gwr_coef.R')
       plot_gwr_coef(yr_i, gwr_model, csv_name_fold, n_row = 3, n_col = 3, eu_bnd = eu_bnd)
-      ##--------- RF: split data into train, validation, and test data--------
+      #--------- RF: split data into train, validation, and test data--------
       print("--------------- RF ---------------")
       set.seed(seed)
       # index <- partition(data_all$country_code, p=c(train=0.6, valid=0.2, test=0.2))
@@ -91,7 +91,7 @@ for(yr_i in seq_along(csv_names)){
       # test_df <- data_all[index$test, ]
       train_df <- train_sub
       test_df <- test_sub
-      pred_c_rf <- c(pred_c, "x_trun", "y_trun")
+      pred_c_rf <- c(pred_c) #"x_trun", "y_trun"
       x_varname = names(data_all %>% dplyr::select(matches(pred_c_rf)))
       print("RF predictors:")
       print(x_varname)
@@ -125,33 +125,33 @@ for(yr_i in seq_along(csv_names)){
       source("scr/fun_plot_rf_vi.R")
       plot_rf_vi(csv_name_fold, var_no = 10)
       # Model Performance evaluation:
-      slr_poll$eval_train %>% print()
-      slr_poll$eval_test %>% print()
-      error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr']) %>% 
-         print()
-      error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr']) %>% 
-         print()
-      rf_result$eval_train
-      rf_result$eval_test 
-      rf_result$rf_result %>% names
-      # output all models' performance matrix
-      output_em <- function(pred_df, csv_name, model, year, obs_name, pred_name){
-         error_matrix(pred_df[pred_df$df_type=='train', 'obs'], pred_df[pred_df$df_type=='train', 'gwr'])
-         
-         em <- rbind(error_matrix(pred_df[pred_df$df_type=='test', 'obs'], pred_df[pred_df$df_type=='test', model]) , 
-                     error_matrix(pred_df[pred_df$df_type=='train', 'obs'], pred_df[pred_df$df_type=='train', model])) %>% 
-            as.data.frame()
-         # em[, c(1, 5, 7)]
-         
-         perf_matrix <- em %>% mutate(df_type=c('test','train'), model=model, n_fold=fold_i,
-                                      year=year, csv_name=csv_name)
-         perf_matrix
-      }
-      out_pm <- rbind(output_em(slr_df, csv_name_fold, 'slr', years[[yr_i]], "obs", "slr"),
-                      output_em(gwr_df, csv_name_fold, 'gwr', years[[yr_i]], "obs", "gwr"),
-                      output_em(rf_result$rf_result, csv_name_fold, 'rf', years[[yr_i]], "obs", "rf")
-      )
-      write.csv(out_pm, paste0("data/workingData/perf_m_",csv_name_fold, '.csv'), row.names = F)
+      # slr_poll$eval_train %>% print()
+      # slr_poll$eval_test %>% print()
+      # error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr']) %>% 
+      #    print()
+      # error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr']) %>% 
+      #    print()
+      # rf_result$eval_train
+      # rf_result$eval_test 
+      # rf_result$rf_result %>% names
+      # # output all models' performance matrix
+      # output_em <- function(pred_df, csv_name, model, year, obs_name, pred_name){
+      #    error_matrix(pred_df[pred_df$df_type=='train', 'obs'], pred_df[pred_df$df_type=='train', 'gwr'])
+      #    
+      #    em <- rbind(error_matrix(pred_df[pred_df$df_type=='test', 'obs'], pred_df[pred_df$df_type=='test', model]) , 
+      #                error_matrix(pred_df[pred_df$df_type=='train', 'obs'], pred_df[pred_df$df_type=='train', model])) %>% 
+      #       as.data.frame()
+      #    # em[, c(1, 5, 7)]
+      #    
+      #    perf_matrix <- em %>% mutate(df_type=c('test','train'), model=model, n_fold=fold_i,
+      #                                 year=year, csv_name=csv_name)
+      #    perf_matrix
+      # }
+      # out_pm <- rbind(output_em(slr_df, csv_name_fold, 'slr', years[[yr_i]], "obs", "slr"),
+      #                 output_em(gwr_df, csv_name_fold, 'gwr', years[[yr_i]], "obs", "gwr"),
+      #                 output_em(rf_result$rf_result, csv_name_fold, 'rf', years[[yr_i]], "obs", "rf")
+      # )
+      # write.csv(out_pm, paste0("data/workingData/perf_m_",csv_name_fold, '.csv'), row.names = F)
    }
    
    parallel::stopCluster(cl)
