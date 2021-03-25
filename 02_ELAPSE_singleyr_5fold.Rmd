@@ -27,15 +27,28 @@ years <- as.list(seq(2005, 2012))
 all_test <- lapply(paste0("data/workingData/", csv_names, ".csv"), read.csv)
 # lapply(all_test, nrow)
 
-show_EM <- function(all_df){
-   gwr=all_df$gwr
-   slr=all_df$slr
-   rf=all_df$rf
-   data.frame(slr=error_matrix(all_df$obs, slr),
-           gwr=error_matrix(all_df$obs, gwr),
-           rf=error_matrix(all_df$obs, rf))[c(1,5,7),]
+show_EM <- function(all_df_i){
+   gwr=all_test[[all_df_i]]$gwr
+   slr=all_test[[all_df_i]]$slr
+   rf=all_test[[all_df_i]]$rf
+   df_all <- data.frame(slr=error_matrix(all_test[[all_df_i]]$obs, slr),
+           gwr=error_matrix(all_test[[all_df_i]]$obs, gwr),
+           rf=error_matrix(all_test[[all_df_i]]$obs, rf),
+           yr=years[[all_df_i]])[c(1,5,7),]
+   df_all$EM = row.names(df_all)
+   df_all
 }
-lapply(all_test, show_EM)
+em_df <- lapply(seq_along(all_test), show_EM)
+em_df <- do.call(rbind, em_df)
+ggplot(em_df %>% filter(EM=='rsq') %>%  gather("model", "values", -c("yr", "EM")), aes(x=yr, y=values, fill=model))+
+      geom_bar(stat="identity", position = "dodge2")+
+      # facet_grid(EM~., scales ='free')+
+      # labs(title=years[[i]])+
+      theme(axis.title = element_text(size = 18),
+          axis.text = element_text(size = 16),
+          legend.title = element_text(size = 16),
+          legend.text = element_text(size = 16),
+          strip.text.y = element_text(size = 15))
 
 # ggplot(perfm)+
 #       geom_boxplot(aes(x=model, y=rsq))+
