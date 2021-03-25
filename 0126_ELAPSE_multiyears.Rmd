@@ -9,20 +9,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F, fig.width = 6, fig.height = 6, warning=F)
-library(dplyr)
-library(raster)
-library(sf)
-library(car)  # for running slr
-library(GWmodel)  #gwr
-library(ranger) # Random forests
-library(caret)  #data partition
-library(splitstackshape)   #stratified function in this library is better than createDataPartition in library caret
-library(splitTools)
-library(APMtools)
-library(tidyr)
-library(viridis)
-library(MASS)
-library(tmap)
+source("scr/fun_call_lib.R")
 ```
 ```{r read data}
 eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
@@ -33,11 +20,12 @@ eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
 
 # Location
 
-```{r}
+```{r, echo=T}
 # csv_name <- 'run1_train_2010'
-csv_names <- paste0('run1_train_', c('2010', '09-11', '08-12'))
-years <- list(2010, 2009:2011, 2008:2012)
-
+# csv_names <- paste0('run1_train_', c('2010', '09-11', '08-12'))
+# years <- list(2010, 2009:2011, 2008:2012)
+csv_names <- paste0('run2_met_omi_',c('08-10', '09-11', '10-12', '08-12'))   #2008:2012
+years <- list(2008:2010, 2009:2011, 2010:2012, 2008:2012)
 
 
 slr <- lapply(paste0('data/workingData/SLR_result_all_', csv_names, '.csv'), read.csv)
@@ -45,12 +33,12 @@ gwr_df <- lapply(paste0('data/workingData/GWR_result_all_', csv_names, '.csv'), 
 rf <- lapply(paste0('data/workingData/RF_result_all_', csv_names, '.csv'), read.csv)
 ```
 
-The datasets were randomly divided into training and test data, using 'type_of_st', 'year', and 'climate_zone' as stratification.
+The datasets were randomly divided into training and test data, using 'type_of_st' and 'climate_zone' as stratification.
 
 
 ```{r fig.height=6, fig.width=10}
 tmap_mode('plot')
-EU_data <- slr[[3]]
+EU_data <- slr[[4]]
 local_crs <- CRS("+init=EPSG:3035")
 EU_sp <- EU_data %>%    
    SpatialPointsDataFrame(data = ., 
