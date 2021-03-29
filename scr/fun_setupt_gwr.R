@@ -1,6 +1,6 @@
-setup_gwr <- function(train_data, eu_bnd, cellsize, local_crs){
+setup_gwr <- function(train_data, eu_bnd, cellsize, local_crs, xcoord="Xcoord", ycoord="Ycoord"){
    sp_train <- sp::SpatialPointsDataFrame(data = train_data,
-                                          coords = cbind(train_data$Xcoord, train_data$Ycoord),
+                                          coords = cbind(train_data[, xcoord], train_data[, ycoord]),
                                           proj4string = local_crs)
    
    xmin <- extent(eu_bnd)[1]
