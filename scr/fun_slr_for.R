@@ -182,17 +182,21 @@ slr <- function(POLL, pred, cv_n=1){
    lastmodel <- lm(Final~., data=Final)
    
    # exclude variables whose p values are >0.1 from the model, one by one with the highest p
-   for(j in (dim(Final)[2]-1):1){  
-      if(max(summary(lastmodel)$coefficients[-1,4])>=0.1){
-         a <- max(summary(lastmodel)$coefficients[-1,4])
-         for (i in 1:j){
-            if(summary(lastmodel)$coefficients[i+1,4]==a){
-               Final <- Final[c(-(i+1))]}
-         }
-      }
-      
-      lastmodel <- lm(Final~., data=Final)
-   }
+   #Old code:
+   # for(j in (dim(Final)[2]-1):1){  
+   #    if(max(summary(lastmodel)$coefficients[-1,4])>=0.1){
+   #       a <- max(summary(lastmodel)$coefficients[-1,4])
+   #       for (i in 1:j){
+   #          if(summary(lastmodel)$coefficients[i+1,4]==a){
+   #             Final <- Final[c(-(i+1))]}
+   #       }
+   #    }
+   #    
+   #    lastmodel <- lm(Final~., data=Final)
+   # }
+   Final <- Final %>% dplyr::select("Final", (summary(lastmodel)$coefficients[-1,4]<0.1) %>% names)
+   lastmodel <- lm(Final~., data=Final)
+   
    
    # install.packages("car")
    # library(car)
@@ -200,24 +204,20 @@ slr <- function(POLL, pred, cv_n=1){
    ##exclude vif>=3
    ############-------------------
    
-   # md <- lm(pm25_NI~tcc+indcount_80p+blh+PM25_EU_SIA+Nat_60p+v10+ROADS_EU_20p+Urbgr_50p+Port_15p+MACC_SS, data = All)
-   # md <- lm(pm25_S~ PM25_EU_annual+PM25_EU_DUST+u10+indcount_100p+MACC_BC+Tbu_40p+MACC_TCSO2+v10+ROADS_EU_3p, data = All)
-   # md <- lm(pm25_SI~ tcc+ROADS_EU_10p+Ind_60p+Hdr_2p+u10+MAJRDS_EUp, data = All)
+   #Old code:
+   # for(j in (dim(Final)[2]-1):1){  
+   #    if(max(vif(lastmodel))>=3){
+   #       b <- max(vif(lastmodel))
+   #       for (i in 1:j){
+   #          if(vif(lastmodel)[i]==b){
+   #             Final <- Final[c(-(i+1))]}}  # debug: because not all models will have predictors with VIF larger than 3
+   #    }
+   #    
+   #    lastmodel <- lm(Final~., data=Final)
+   # }
+   Final <- Final %>% dplyr::select(c("Final", names(lastmodel %>% coefficients)[vif(lastmodel)<3][-1]))
+   lastmodel <- lm(Final~., data=Final)
    
-   
-   # summary(md)
-   # vif(md)------------------------
-   
-   for(j in (dim(Final)[2]-1):1){  
-      if(max(vif(lastmodel))>=3){
-         b <- max(vif(lastmodel))
-         for (i in 1:j){
-            if(vif(lastmodel)[i]==b){
-               Final <- Final[c(-(i+1))]}}  # debug: because not all models will have predictors with VIF larger than 3
-      }
-      
-      lastmodel <- lm(Final~., data=Final)
-   }
    # Try to add x and y at the last step (some variable becomes insignificant)
    # lastmodel <- lm(Final~., data=cbind(Final, 
    #                                     x_trun=train_sub$x_trun, 
