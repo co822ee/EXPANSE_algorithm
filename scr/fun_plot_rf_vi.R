@@ -7,5 +7,10 @@ plot_rf_vi <- function(csv_name, var_no){
       coord_flip() +
       theme_light()+
       labs(x = 'variable', y = 'importance value (impurity)',
-           title = csv_name)
+           title = csv_name)+
+      theme(axis.title = element_text(size = 18),
+            axis.text = element_text(size = 16),
+            legend.title = element_text(size = 16),
+            legend.text = element_text(size = 16),
+            strip.text.y = element_text(size = 15))
 }
