@@ -1,10 +1,11 @@
 output_gwr_result <- function(gwr.res.t, train_data, test_data, local_crs,
-                              output_filename = csv_name, mixedGWR=F, outputcsv=T){
+                              output_filename = csv_name, mixedGWR=F, outputcsv=T, 
+                              xcoord="Xcoord", ycoord="Ycoord"){
    sp_train <- sp::SpatialPointsDataFrame(data = train_data,
-                                          coords = cbind(train_data$Xcoord, train_data$Ycoord),
+                                          coords = cbind(train_data[, xcoord], train_data[, ycoord]),
                                           proj4string = local_crs)
    sp_test <- sp::SpatialPointsDataFrame(data = test_data,
-                                         coords = cbind(test_data$Xcoord, test_data$Ycoord),
+                                         coords = cbind(test_data[, xcoord], test_data[, ycoord]),
                                          proj4string = local_crs)
    # Extract the pred coef values
    if(mixedGWR){
