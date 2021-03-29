@@ -16,25 +16,7 @@ csv_names <- paste0("testGWR_", regression_grd_cellsize, "_", kernels, "_", year
 
 ```
 
-## R2 vs grid cell size
-
-
-
-```{r}
-perfm <- lapply(paste0('data/workingData/', list.files('data/workingData/', 'test_grdsize_')), 
-                function(file_name) read.csv(file_name, header=T) )
-
-perfm <- do.call(rbind, perfm)
-perfm$reg_grdsize <- c(lapply(perfm$csv_name[1:nrow(perfm)], function(f) strsplit(f, '_')[[1]][2]) %>% unlist() %>% as.numeric())
-perfm$kernel <- c(lapply(perfm$csv_name[1:nrow(perfm)], function(f) strsplit(f, '_')[[1]][3]) %>% unlist() %>% as.character())
-ggplot(perfm)+
-   geom_line(aes(x=reg_grdsize, y=rsq, col=df_type))+
-   geom_point(aes(x=reg_grdsize, y=rsq, col=df_type))+
-   labs(title=paste0(unique(perfm$year), " (", unique(perfm$kernel), ")"),
-        x='grid cell size of regression coefficients (km)',
-        y='R squared',
-        col='data type')
-```
+This illustration comes from the result before using 5-fold cv.
 
 ## Parameter surfaces with different grid cell sizes
 For 
@@ -73,8 +55,10 @@ source("scr/fun_setupt_gwr.R")
 # plot(sp_train, add=T)
 ```
 
-
+Here we read in all GWR parameter surfaces. 
 It took less than a minute to run the smallest regression grid cell size (in this case: 10km)
+Here you can see that some coefficient surfaces contain negative values.
+(Please note that at this stage the variables are derived from part of the data)
 
 ```{r pressure, echo=FALSE}
 slr <- read.csv(paste0("data/workingData/SLR_summary_model_run2_", year_target,".csv"))
@@ -87,6 +71,7 @@ gwr_models <- lapply(csv_names, function(filename) {
    names(raster_stack) <- c("Intercept", slr$variables[-1])
    raster_stack
 })
+print(gwr_models)
 # sapply(gwr_models, function(gwr_m) names(gwr_m))
 
 # for(plot_i in seq_along(names(gwr_models[[1]]))){ #seq_along(names(gwr_model$SDF))
@@ -127,8 +112,10 @@ gwr_models <- lapply(csv_names, function(filename) {
 # }
 ```
 
+## Compare between grid cell size 50km and 200km.
+
 ```{r}
-gwr_models[[6]]
+# gwr_models[[6]]
 source("scr/fun_setupt_gwr.R")
 nngb <- read.table(paste0("data/workingData/GWR_nngb_run2_",
                                   year_target, ".txt"))[,1]
@@ -181,7 +168,11 @@ grd_p2$layer <- seq_len(ncol(DM2))
 
 ```
 
+
+
 ```{r}
+# Rename the coefficient's names to include the gridcell size (and then resample to the smallest grid cell size of the two gridcell sizes we want to compare, which are 50 and 200km. )
+# Each element in the list contains each predictor selected
 var_rcs <- vector(mode='list', length=length(names(gwr_models[[1]])))
 for(plot_i in seq_along(names(gwr_models[[1]]))){ #seq_along(names(gwr_model$SDF))
    
@@ -198,7 +189,21 @@ for(plot_i in seq_along(names(gwr_models[[1]]))){ #seq_along(names(gwr_model$SDF
 }
 ```
 
-```{r}
+
+```{r fun: compare the histogram of weigths}
+show_weights <- function(grd_i, grd_i2){
+   
+   # grd_i <- 256
+   # grd_i2 <- st_intersection(grd_mp2, st_as_sf(grd_test)[grd_i, ]) %>% rownames %>% as.numeric#3464
+   nngb <- read.table(paste0("data/workingData/GWR_nngb_run2_", 
+                             target_yr, "_fold_", n_fold, ".txt"))[,1]
+   gw.weight(DM1[,grd_i], nngb, kernels[1], T) %>% hist(., main="50km grd cell size")  #grd_i is the regression point index.
+   gw.weight(DM2[,grd_i2], nngb, kernels[1], T) %>% hist(., main="200km grd cell size") 
+}
+
+```
+
+```{r fun plot tmap}
 tmap_plot= function(grd_i1, grd_i2){
    tmap_mode("view")
    sp_train <- sp_train1
@@ -251,7 +256,7 @@ tmap_plot= function(grd_i1, grd_i2){
       tm_view(set.view = c(st_coordinates(grd_p1[grd_p1$layer==grd_i1,] %>% st_transform(st_crs(4326))) %>% as.vector(), 6))+
        # add coef raster surface
       tm_shape(var_rcs[[4]]$MAJRDS_EU_1p_50)+
-      tm_raster(palette = viridis(5), breaks = seq(0, 0.03, 0.005), style = "cont")+
+      tm_raster(palette = viridis(5), breaks = seq(0, 0.03, 0.005), style = "cont")
    
    # tm_shape(var_rcs[[4]])+
    #    tm_raster(palette = viridis(5), style = "cont", title = '')+
@@ -284,9 +289,23 @@ tmap_plot= function(grd_i1, grd_i2){
 
 ```
 
+Compare the weights from different grid cell sizes. There are two issues showed up here:
+
+1. The weight functions are only influenced by the bandwidth size, but not by the grid cell sizes. (though the grid cell size shows the information reflected by the grid cell sizes, after a certain grid cell size, the prediction accuracy does not improve much)
+
+2. Due to the small bandwidth size optimized by leave-one-out cross-validation, only a small subset of observation points has major weights on the calibration process. Therefore, the reason why 200km grid cell size gives satisfactory results is that it basically include the approximately the same amount of observation points specified by the nngb (bandwidth size).
+
+
+
 ```{r}
 grd_n2=256
-grd_n1=st_intersection(grd_mp1, grd_p2[grd_p2$layer==grd_n2,])$layer +1
+grd_n1=st_intersection(grd_mp1, grd_p2[grd_p2$layer==grd_n2,]) %>% rownames %>% as.numeric
+show_weights(grd_n1, grd_n2)
+```
+
+Compare the grid cell sizes in maps:
+
+```{r}
 tmap_plot(grd_n1, grd_n2)
 ```
 
