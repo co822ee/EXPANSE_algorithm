@@ -183,19 +183,20 @@ slr <- function(POLL, pred, cv_n=1){
    
    # exclude variables whose p values are >0.1 from the model, one by one with the highest p
    #Old code:
-   # for(j in (dim(Final)[2]-1):1){  
-   #    if(max(summary(lastmodel)$coefficients[-1,4])>=0.1){
-   #       a <- max(summary(lastmodel)$coefficients[-1,4])
-   #       for (i in 1:j){
-   #          if(summary(lastmodel)$coefficients[i+1,4]==a){
-   #             Final <- Final[c(-(i+1))]}
-   #       }
-   #    }
-   #    
-   #    lastmodel <- lm(Final~., data=Final)
-   # }
-   Final <- Final %>% dplyr::select("Final", (summary(lastmodel)$coefficients[-1,4]<0.1) %>% names)
-   lastmodel <- lm(Final~., data=Final)
+   for(j in (dim(Final)[2]-1):1){
+      if(max(summary(lastmodel)$coefficients[-1,4])>=0.1){
+         a <- max(summary(lastmodel)$coefficients[-1,4])
+         for (i in 1:j){
+            if(summary(lastmodel)$coefficients[i+1,4]==a){
+               Final <- Final[c(-(i+1))]}
+         }
+      }
+
+      lastmodel <- lm(Final~., data=Final)
+   }
+   # CANNOT do this way because some variables with p-value more than 0.1 might be caused by the one excluded:
+   # Final <- Final %>% dplyr::select("Final", (summary(lastmodel)$coefficients[-1,4]<0.1) %>% names)
+   # lastmodel <- lm(Final~., data=Final)
    
    
    # install.packages("car")
@@ -205,18 +206,19 @@ slr <- function(POLL, pred, cv_n=1){
    ############-------------------
    
    #Old code:
-   # for(j in (dim(Final)[2]-1):1){  
-   #    if(max(vif(lastmodel))>=3){
-   #       b <- max(vif(lastmodel))
-   #       for (i in 1:j){
-   #          if(vif(lastmodel)[i]==b){
-   #             Final <- Final[c(-(i+1))]}}  # debug: because not all models will have predictors with VIF larger than 3
-   #    }
-   #    
-   #    lastmodel <- lm(Final~., data=Final)
-   # }
-   Final <- Final %>% dplyr::select(c("Final", names(lastmodel %>% coefficients)[vif(lastmodel)<3][-1]))
-   lastmodel <- lm(Final~., data=Final)
+   for(j in (dim(Final)[2]-1):1){
+      if(max(vif(lastmodel))>=3){
+         b <- max(vif(lastmodel))
+         for (i in 1:j){
+            if(vif(lastmodel)[i]==b){
+               Final <- Final[c(-(i+1))]}}  # debug: because not all models will have predictors with VIF larger than 3
+      }
+
+      lastmodel <- lm(Final~., data=Final)
+   }
+   # CANNOT do this way because some variables with p-value more than 0.1 might be caused by the one excluded:
+   # Final <- Final %>% dplyr::select(c("Final", names(lastmodel %>% coefficients)[vif(lastmodel)<3][-1]))
+   # lastmodel <- lm(Final~., data=Final)
    
    # Try to add x and y at the last step (some variable becomes insignificant)
    # lastmodel <- lm(Final~., data=cbind(Final, 
