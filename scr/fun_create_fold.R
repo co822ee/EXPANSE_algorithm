@@ -1,5 +1,5 @@
 create_fold <- function(data_df, seed, strt_group=c('type_of_st', 'zoneID'),
-                            nfold=5){
+                        multiyr_vargroup="station_european_code", nfold=5){
    # data_df: the dataset you want to split for training and testing
    # seed: 123
    # strt_group: groups for stratification
@@ -27,7 +27,7 @@ create_fold <- function(data_df, seed, strt_group=c('type_of_st', 'zoneID'),
       # only leave location out 
       folds=CreateSpacetimeFolds(
          data_df,
-         spacevar = "station_european_code",     # leave location out
+         spacevar = multiyr_vargroup,     # leave location out
          timevar = NA,
          k = nfold,
          class = NA,
