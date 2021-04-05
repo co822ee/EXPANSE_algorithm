@@ -1,5 +1,7 @@
 opt_rf <- function(df_train, df_test, y_varname, x_varname, csv_name, 
-                   hyper_grid, seed=123, tuneRF=F){
+                   hyper_grid, seed=123, tuneRF=F, 
+                   outputselect = c("station_european_code", "rf", "obs", "res", 
+                                    "nfold", "df_type")){
    if(tuneRF){
       mtry <- hyper_grid[which.min(hyper_grid$OOB_RMSE),]$mtry
       ntrees <- hyper_grid[which.min(hyper_grid$OOB_RMSE),]$ntrees
@@ -38,6 +40,8 @@ opt_rf <- function(df_train, df_test, y_varname, x_varname, csv_name,
    
    eval_train <- error_matrix(rf_poll_train$obs, rf_poll_train$rf)
    eval_test <- error_matrix(rf_poll_test$obs, rf_poll_test$rf)
+   
+   rf_result <- rf_result[, outputselect]
 
    write.csv(rf_result, 
              paste0('data/workingData/RF_result_all_', csv_name, '.csv'), 

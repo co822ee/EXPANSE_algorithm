@@ -1,6 +1,8 @@
 output_gwr_result <- function(gwr.res.t, train_data, test_data, local_crs,
                               output_filename = csv_name, mixedGWR=F, outputcsv=T, 
-                              xcoord="Xcoord", ycoord="Ycoord"){
+                              xcoord="Xcoord", ycoord="Ycoord",
+                              outputselect = c("station_european_code", "gwr", "obs", "res"
+                                               "nfold", "df_type")){
    sp_train <- sp::SpatialPointsDataFrame(data = train_data,
                                           coords = cbind(train_data[, xcoord], train_data[, ycoord]),
                                           proj4string = local_crs)
@@ -21,6 +23,7 @@ output_gwr_result <- function(gwr.res.t, train_data, test_data, local_crs,
    gwr_test_df$df_type <- 'test'
    gwr_df <- rbind(gwr_train_df, gwr_test_df)
    gwr_df$res <- gwr_df$obs - gwr_df$gwr
+   gwr_df <- gwr_df[, outputselect]
    if(outputcsv){
       write.csv(gwr_df, 
                 paste0('data/workingData/GWR_result_all_', output_filename, '.csv'), 

@@ -1,5 +1,7 @@
 source("scr/fun_gen_pred_df.R")
-output_slr_result <- function(model, test_df, train_df, output_filename, obs_varname){
+output_slr_result <- function(model, test_df, train_df, output_filename, obs_varname,
+                              outputselect = c("station_european_code", "slr", "obs", "res",
+                                               "nfold", "df_type")){
    slr_poll_test <- gen_pred_df(model, test_df, obs_varname)
    slr_poll_train <- gen_pred_df(model, train_df, obs_varname)
    eval_test <- error_matrix(slr_poll_test[, obs_varname], slr_poll_test$slr)
@@ -7,6 +9,7 @@ output_slr_result <- function(model, test_df, train_df, output_filename, obs_var
 
    slr_poll <- rbind(slr_poll_train %>% mutate(df_type = 'train'),
                      slr_poll_test %>% mutate(df_type = 'test'))
+   slr_poll <- slr_poll[, outputselect]
    write.csv(slr_poll, 
              paste0('data/workingData/SLR_result_all_', output_filename, '.csv'), 
              row.names = F)
