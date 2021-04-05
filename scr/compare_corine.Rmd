@@ -1,0 +1,39 @@
+---
+title: "compare_corine"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(corrplot)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+
+```
+
+## Corine from different years
+
+```{r pressure, echo=FALSE}
+corine1 <- read.csv(paste0("data/processed/corine_", 2000, ".csv"))
+corine2 <- read.csv(paste0("data/processed/corine_", 2018, ".csv"))
+
+
+corrplot(cor(inner_join(corine1, corine1, by="sta_code") %>% 
+                select(matches("nat"))),
+         type = "upper", method = "pie", tl.cex = 0.7)
+
+```
+
+## Corine calculation from Elapse vs the new one
+```{r}
+
+```
+
