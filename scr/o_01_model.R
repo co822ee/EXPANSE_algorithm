@@ -1,4 +1,9 @@
-# This script run the three models for multiple single years or multiple years
+# This script run the three models for multiple single years 
+# for supervised linear regression model, geographically weighted regression (stepwise),
+# and random forests.
+# But although macc was selected in gwr, the coefficient values were soooo little that it
+# can be regarded as zero...
+
 source("scr/fun_call_lib.R")
 source("scr/o_00_00_read_data.R")
 # Whether to tune RF
@@ -50,8 +55,9 @@ for(yr_i in seq_along(csv_names)){
       source("scr/fun_slr_for.R")
       # check the predictor variables
       print("SLR predictors:")
-      train_sub %>% dplyr::select(matches(pred_c)) %>% names()
-      slr_result <- slr(train_sub$obs, train_sub %>% dplyr::select(matches(pred_c)) %>% as.data.frame(),
+      x_varname <- train_sub %>% dplyr::select(matches(pred_c)) %>% names()
+      x_varname
+      slr_result <- slr(train_sub$obs, train_sub[, x_varname] %>% as.data.frame(),
                         cv_n = csv_name_fold)
       slr_model <- slr_result[[3]]
       #f# SLR: test SLR
@@ -61,8 +67,6 @@ for(yr_i in seq_along(csv_names)){
 
       slr_df <- slr_poll[[1]]
 
-      #f# SLR: perform cross-validation
-
       #-----------#f# GWR: train GWR----------
       print("GWR")
       source("scr/fun_setupt_gwr.R")
@@ -71,20 +75,32 @@ for(yr_i in seq_along(csv_names)){
       sp_train <- setup[[1]]
       grd <- setup[[2]]
       DM <- setup[[3]]
-      source("scr/fun_calibr_gwr.R")
-      nngb <- calibr_gwr(sp_train, csv_name_fold)
+      # Stepwise GWR
+      source("scr/o_01_fun_stepGWR.R")
+      calibr_nngb <- T
+      if(!file.exists(paste0("data/workingData/stepGWR_", csv_name_fold, '.txt'))){
+         output_new <- gwr_stepwise(x_varname, "exponential", sp_train, train_sub, 
+                                    grd, DM, calibr_nngb, csv_name_fold)
+      }else{
+         output_new <- read.table(paste0("data/workingData/stepGWR_", csv_name_fold, '.txt'), header=T)
+      }
+      
+      source("scr/o_01_fun_final_nngb.R")
+      nngb <- final_nngb(sp_train, output_new, F)
       print(paste0("nngb: ", nngb))
-      source("scr/fun_gwr.R")
-      gwr_model <- gwr(sp_train, grd, DM, nngb, csv_name_fold)
+      source("scr/o_01_fun_finalGWR.R")
+      gwr_model <- finalGWR(sp_train, grd, DM, nngb, output_new)
       #f# GWR: perform cross-validation
       source("scr/fun_output_gwr_result.R")
       gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, local_crs,
-                                  output_filename = csv_name_fold, xcoord="xcoord", ycoord="ycoord")
+                                  output_filename = paste0("stepGWR_", csv_name_fold), 
+                                  xcoord="xcoord", ycoord="ycoord")
 
       # plot gwr surface
       ncol(gwr_model$SDF) %>% print()  # the number of predictors selected
       # source('scr/fun_plot_gwr_coef.R')
-      # plot_gwr_coef(yr_i, gwr_model, csv_name_fold, n_row = 3, n_col = 3, eu_bnd = eu_bnd)
+      # plot_gwr_coef(yr_i, gwr_model, paste0("stepGWR_", csv_name_fold), n_row = 3, n_col = 3, eu_bnd = eu_bnd)
+      
       #--------- RF: split data into train, validation, and test data--------
       print("--------------- RF ---------------")
       set.seed(seed)
