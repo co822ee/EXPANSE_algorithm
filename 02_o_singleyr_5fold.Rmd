@@ -10,6 +10,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F, fig.width = 6, fig.height = 6, warning=F)
 source("scr/fun_call_lib.R")
+library(kableExtra)
 ```
 ```{r read data}
 eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
@@ -44,7 +45,8 @@ The datasets were randomly divided into training and test data, using 'type_of_s
 
 
 ```{r fig.height=6, fig.width=10}
-tmap_mode('plot')
+# tmap_mode('plot')
+tmap_mode('view')
 maps_l <- lapply(seq_along(years), function(yr_i){
    no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[yr_i]])
    # data_all <- no2_e_09_11
@@ -62,7 +64,8 @@ maps_l <- lapply(seq_along(years), function(yr_i){
       tm_borders()
    map_1
 })
-do.call(tmap_arrange, maps_l)
+# do.call(tmap_arrange, maps_l)
+maps_l
 ```
 
 # Five-fold cross-validation
@@ -89,12 +92,24 @@ ggplot(em_df %>% filter(EM=='rsq') %>%  gather("model", "values", -c("yr", "EM")
       geom_bar(stat="identity", position = "dodge2")+
       # facet_grid(EM~., scales ='free')+
       # labs(title=years[[i]])+
+   labs(y="R squared")+
       theme(axis.title = element_text(size = 18),
           axis.text = element_text(size = 16),
           legend.title = element_text(size = 16),
           legend.text = element_text(size = 16),
           strip.text.y = element_text(size = 15))
 
+ggplot(em_df %>% filter(EM=='RMSE') %>%  gather("model", "values", -c("yr", "EM")), 
+       aes(x=yr, y=values, fill=model))+
+      geom_bar(stat="identity", position = "dodge2")+
+      # facet_grid(EM~., scales ='free')+
+      # labs(title=years[[i]])+
+   labs(y="RMSE")+
+      theme(axis.title = element_text(size = 18),
+          axis.text = element_text(size = 16),
+          legend.title = element_text(size = 16),
+          legend.text = element_text(size = 16),
+          strip.text.y = element_text(size = 15))
 # ggplot(perfm)+
 #       geom_boxplot(aes(x=model, y=rsq))+
 #       facet_grid(df_type~., scales ='free')+
@@ -106,15 +121,20 @@ ggplot(em_df %>% filter(EM=='rsq') %>%  gather("model", "values", -c("yr", "EM")
 
 
 ```
+
 *It is strange that MACC was one of the influential predictors in RF but not included in SLR.*
 There are two differences in the predictors of ELAPSE and the current predictors:
 
 1. Population data was obtained from a different data sources: JRC global population counts (2000)
 2. Altitude was not included
+3. OSM was used and there were 3 classes of road types instead of MAJOR and ALL roads
 
 
+* The selected predictors are mostly population, impervious density and road data.
+* MACC is not selected in SLR but is influential in RF.
 
-```{r selected predictors in slr}
+
+```{r selected predictors in slr, fig.width = 8, fig.height = 3.6}
 comp_rf_slr <- function(csv_i){
    slr_name <- list.files("data/workingData/", "SLR_summary_model_o")[csv_i]
    yr <- strsplit(slr_name, "_")[[1]][5] %>% as.numeric()
@@ -134,11 +154,11 @@ comp_rf_slr <- function(csv_i){
            title = paste0(yr, "_fold_", nfold))+
       # facet_grid(EM~., scales ='free')+
       # labs(title=years[[i]])+
-      theme(axis.title = element_text(size = 18),
-            axis.text = element_text(size = 16),
-            legend.title = element_text(size = 16),
-            legend.text = element_text(size = 16),
-            strip.text.y = element_text(size = 15))
+      theme(axis.title = element_text(size = 13),
+            axis.text = element_text(size = 13),
+            legend.title = element_text(size = 13),
+            legend.text = element_text(size = 13),
+            strip.text.y = element_text(size = 12))
    # rf_vi <- read.csv(paste0("data/workingData/", rf_name))
    source("scr/fun_plot_rf_vi.R")
    p2 <- plot_rf_vi(paste0("o_", yr, "_fold_", nfold), var_no = 10)
@@ -162,19 +182,20 @@ Averaged error matrix from all folds:
 ## Test
 
 ```{r}
-perfm <- lapply(seq_along(years), function(i){
-   perfm <- lapply(paste0("data/workingData/", list.files("data/workingData/", paste0("perf_m_run2_", years[[i]]))), read.csv)
-   perfm <- do.call(rbind, perfm)
-   perfm %>% filter(df_type=="test") %>% group_by(df_type, year, model) %>% summarise(RMSE=mean(RMSE),
-                                                                                      # RRMSE=mean(RRMSE),
-                                                                                      # IQR=mean(IQR),
-                                                                                      # rIQR=mean(rIQR),
-                                                                                      # MAE=mean(MAE),
-                                                                                      # rMAE=mean(rMAE),
-                                                                                      # rsq_sd=sd(rsq),
-                                                                                      rsq=mean(rsq)) #,explained_var=mean(explained_var)
-})
-do.call(rbind, perfm)
+# perfm <- lapply(seq_along(years), function(i){
+#    perfm <- lapply(paste0("data/workingData/", list.files("data/workingData/", paste0("perf_m_run2_", years[[i]]))), read.csv)
+#    perfm <- do.call(rbind, perfm)
+#    perfm %>% filter(df_type=="test") %>% group_by(df_type, year, model) %>% summarise(RMSE=mean(RMSE),
+#                                                                                       # RRMSE=mean(RRMSE),
+#                                                                                       # IQR=mean(IQR),
+#                                                                                       # rIQR=mean(rIQR),
+#                                                                                       # MAE=mean(MAE),
+#                                                                                       # rMAE=mean(rMAE),
+#                                                                                       # rsq_sd=sd(rsq),
+#                                                                                       rsq=mean(rsq)) %>% 
+#       kbl(full_width=F)#,explained_var=mean(explained_var)
+# })
+# do.call(rbind, perfm)
 ```
 
 
@@ -183,19 +204,20 @@ do.call(rbind, perfm)
 ## Train
 
 ```{r}
-perfm <- lapply(seq_along(years), function(i){
-   perfm <- lapply(paste0("data/workingData/", list.files("data/workingData/", paste0("perf_m_run2_", years[[i]]))), read.csv)
-   perfm <- do.call(rbind, perfm)
-   perfm %>% filter(df_type=="train") %>% group_by(df_type, year, model) %>% summarise(RMSE=mean(RMSE),
-                                                                                      # RRMSE=mean(RRMSE),
-                                                                                      # IQR=mean(IQR),
-                                                                                      # rIQR=mean(rIQR),
-                                                                                      # MAE=mean(MAE),
-                                                                                      # rMAE=mean(rMAE),
-                                                                                      # rsq_sd=sd(rsq),
-                                                                                      rsq=mean(rsq)) #,explained_var=mean(explained_var)
-})
-do.call(rbind, perfm)
+# perfm <- lapply(seq_along(years), function(i){
+#    perfm <- lapply(paste0("data/workingData/", list.files("data/workingData/", paste0("perf_m_o_", years[[i]]))), read.csv)
+#    perfm <- do.call(rbind, perfm)
+#    perfm %>% filter(df_type=="train") %>% group_by(df_type, year, model) %>% summarise(RMSE=mean(RMSE),
+#                                                                                       # RRMSE=mean(RRMSE),
+#                                                                                       # IQR=mean(IQR),
+#                                                                                       # rIQR=mean(rIQR),
+#                                                                                       # MAE=mean(MAE),
+#                                                                                       # rMAE=mean(rMAE),
+#                                                                                       # rsq_sd=sd(rsq),
+#                                                                                       rsq=mean(rsq)) %>% 
+#       kbl(full_width=F)#,explained_var=mean(explained_var)
+# })
+# do.call(rbind, perfm)
 ```
 
 
