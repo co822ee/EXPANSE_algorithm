@@ -5,7 +5,9 @@ local_crs <- CRS("+init=EPSG:3035")
 
 eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
 ## Read in data (elapse NO2 2010 with climate zones included)
-elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
+# elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate.csv",
+#                        encoding = "utf-8")
+elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate_omi.csv",
                        encoding = "utf-8")
 ## Read in data (airbase observations 1990s-2012)
 airbase <- read.csv("../EXPANSE_APM/data/processed/ab_v8_yr_checked.csv")
