@@ -1,7 +1,7 @@
 opt_rf <- function(df_train, df_test, y_varname, x_varname, csv_name, 
                    hyper_grid, seed=123, tuneRF=F, 
                    outputselect = c("station_european_code", "rf", "obs", "res", 
-                                    "nfold", "df_type")){
+                                    "nfold", "df_type", "year", "index")){
    if(tuneRF){
       mtry <- hyper_grid[which.min(hyper_grid$OOB_RMSE),]$mtry
       ntrees <- hyper_grid[which.min(hyper_grid$OOB_RMSE),]$ntrees

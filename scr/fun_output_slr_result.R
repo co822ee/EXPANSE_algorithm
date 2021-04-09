@@ -1,7 +1,7 @@
 source("scr/fun_gen_pred_df.R")
 output_slr_result <- function(model, test_df, train_df, output_filename, obs_varname,
                               outputselect = c("station_european_code", "slr", "obs", "res",
-                                               "nfold", "df_type")){
+                                               "nfold", "df_type", "year", "index")){
    slr_poll_test <- gen_pred_df(model, test_df, obs_varname)
    slr_poll_train <- gen_pred_df(model, train_df, obs_varname)
    eval_test <- error_matrix(slr_poll_test[, obs_varname], slr_poll_test$slr)
