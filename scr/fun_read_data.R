@@ -29,7 +29,7 @@ subset_df_yrs <- function(obs_df, yr_target){
    if(length(yr_target)==1){
       # Add omi (if the year include omi)
       if(paste0("omi_", yr_target)%in%names(no2_e_sub)){
-         omi <- no2_e_sub[, paste0("omi_",years[[yr_i]])]
+         omi <- no2_e_sub[, paste0("omi_",yr_target)]
          no2_e_sub <- no2_e_sub %>% dplyr::select(-matches("omi"))
          no2_e_sub$omi <- omi
       }else{
@@ -39,7 +39,7 @@ subset_df_yrs <- function(obs_df, yr_target){
       # Multiple years
       if(all(paste0("omi_", yr_target)%in%names(no2_e_sub))){
          # no_omi_year_i <- which(!(paste0("omi_", no2_e_sub$year)%in%names(no2_e_sub)))
-         # omi_str <- paste0("omi_", year_str)
+         omi_str <- paste0("omi_", no2_e_sub$year)
          # Assign the omi values for each year
          omi <- sapply(seq_along(omi_str), function(i) no2_e_sub[i, omi_str[i]])
          no2_e_sub <- no2_e_sub %>% dplyr::select(-matches("omi"))
