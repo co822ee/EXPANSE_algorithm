@@ -164,17 +164,17 @@ for(yr_i in seq_along(csv_names)){
       source("scr/fun_plot_rf_vi.R")
       plot_rf_vi(csv_name_fold, var_no = 10)
       # Model Performance evaluation:
-      # slr_poll$eval_train %>% print()
-      # slr_poll$eval_test %>% print()
-      # error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr']) %>%
-      #    print()
-      # error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr']) %>%
-      #    print()
-      # error_matrix(gwr_rf_result[gwr_rf_result$df_type=="train", "obs"], gwr_rf_result$gwr_rf[gwr_rf_result$df_type=="train"])
-      # error_matrix(gwr_rf_result[gwr_rf_result$df_type=="test", "obs"], gwr_rf_result$gwr_rf[gwr_rf_result$df_type=="test"])
-      # 
-      # rf_result$eval_train
-      # rf_result$eval_test 
+      slr_poll$eval_train %>% print()
+      slr_poll$eval_test %>% print()
+      error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr']) %>%
+         print()
+      error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr']) %>%
+         print()
+      error_matrix(gwr_rf_result[gwr_rf_result$df_type=="train", "obs"], gwr_rf_result$gwr_rf[gwr_rf_result$df_type=="train"])
+      error_matrix(gwr_rf_result[gwr_rf_result$df_type=="test", "obs"], gwr_rf_result$gwr_rf[gwr_rf_result$df_type=="test"])
+
+      rf_result$eval_train
+      rf_result$eval_test
       # rf_result$rf_result %>% names
       # # output all models' performance matrix
       output_em <- function(pred_df, csv_name, model, year, obs_name){
@@ -192,7 +192,7 @@ for(yr_i in seq_along(csv_names)){
                       output_em(gwr_rf_result, csv_name_fold, "gwr_rf", years[[yr_i]], "obs"),
                       output_em(rf_result$rf_result, csv_name_fold, 'rf', years[[yr_i]], "obs")
       )
-      # write.csv(out_pm, paste0("data/workingData/perf_m_",csv_name_fold, '.csv'), row.names = F)
+      write.csv(out_pm, paste0("data/workingData/perf_m_",csv_name_fold, '.csv'), row.names = F)
    }
    
    parallel::stopCluster(cl)
