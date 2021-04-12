@@ -6,7 +6,7 @@ proc_in_data <- function(in_data, neg_pred, xcoord="Xcoord", ycoord="Ycoord"){
    # in_data <- in_data %>% mutate(x_trun = (Xcoord-min(Xcoord))/(max(Xcoord)-min(Xcoord)),
    #                               y_trun = (Ycoord-min(Ycoord))/(max(Ycoord)-min(Ycoord)))
    # transform altitude
-   # in_data <- in_data %>% mutate(alt_t = sqrt((alt10_enh-min(alt10_enh))/max(alt10_enh-min(alt10_enh))))
+   in_data <- in_data %>% mutate(alt_t = sqrt((alt10_enh-min(alt10_enh))/max(alt10_enh-min(alt10_enh))))
    # add year as a grouping factor
    in_data$year <- as.factor(in_data$year)
    # change direction of effect
