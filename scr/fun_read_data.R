@@ -22,7 +22,7 @@ no2_e <- no2 %>% filter(no2$station_european_code%in%unique(elapse_no2$station_e
 no2_e_all <- left_join(no2_e, elapse_no2, by="station_european_code")
 
 # Read in met data
-met <- read.csv("data/raw/met_00_19.csv")  # Met data from GEE
+met <- read.csv("../expanse_multiyear/data/raw/met_00_19.csv")  # Met data from GEE
 met <- met %>% 
    dplyr::select(-".geo", -"system.index") %>%
    rename(station_european_code=Station)
