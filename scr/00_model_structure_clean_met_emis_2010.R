@@ -34,7 +34,7 @@ extra_dat <- extra_dat %>% mutate(sta_sum = ifelse(is.na(sta_sum), 0, sta_sum))
 any(is.na(extra_dat))
 data_all <- inner_join(no2_2010, extra_dat %>% dplyr::select("temp", "u_wind", "v_wind", "pressure", "sta_sum",
                                                       "precip", "station_european_code"))
-data_all <- data_all %>% mutate(wind_speed=(u_wind^2)+(v_wind^2))
+data_all <- data_all %>% mutate(wind_speed=sqrt((u_wind^2)+(v_wind^2)))
 pairs(data_all %>% dplyr::select(wind_speed, u_wind, v_wind, pressure, sta_sum, precip, temp, obs))
 csv_names <- paste0('run2_met_emis_', 2010)   #2008:2012
 years <- as.list(2010)
