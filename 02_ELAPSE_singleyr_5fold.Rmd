@@ -29,8 +29,9 @@ The predictors used in SLR, GWR, RF were the same.
 
 ```{r predictors in LUR}
 source("scr/fun_call_predictor.R")
+source("scr/fun_read_data.R")
 pred_c_rf <- c(pred_c) #"x_trun", "y_trun"
-x_varname = names(all_test[[1]] %>% dplyr::select(matches(pred_c_rf)))
+x_varname = names(subset_df_yrs(no2_e_all, years[[1]]) %>% dplyr::select(matches(pred_c_rf)))
 print("Predictors used:")
 print(x_varname)
 
@@ -75,10 +76,12 @@ do.call(tmap_arrange, maps_l)
 
 show_EM <- function(all_df_i){
    gwr=all_test[[all_df_i]]$gwr
+   gwr_rf=all_test[[all_df_i]]$gwr_rf
    slr=all_test[[all_df_i]]$slr
    rf=all_test[[all_df_i]]$rf
    df_all <- data.frame(slr=error_matrix(all_test[[all_df_i]]$obs, slr),
            gwr=error_matrix(all_test[[all_df_i]]$obs, gwr),
+           gwr_rf=error_matrix(all_test[[all_df_i]]$obs, gwr_rf),
            rf=error_matrix(all_test[[all_df_i]]$obs, rf),
            yr=years[[all_df_i]])[c(1,5,7),]
    df_all$EM = row.names(df_all)
@@ -109,8 +112,8 @@ ggplot(em_df %>% filter(EM=='rsq') %>%  gather("model", "values", -c("yr", "EM")
 ```
 
 
-```{r selected predictors in slr, fig.width = 8, fig.height = 3.6}
-files <- list.files("data/workingData/", "SLR_summary_model_run2_")[grepl("fold", list.files("data/workingData/", "SLR_summary_model_run2_"))]
+```{r selected predictors in slr, fig.width = 10, fig.height = 12}
+files <- list.files("data/workingData/", "SLR_summary_model_run2_2")[grepl("fold", list.files("data/workingData/", "SLR_summary_model_run2_2"))]
 comp_rf_slr <- function(csv_i){
    slr_name <- files[csv_i]
    yr <- strsplit(slr_name, "_")[[1]][5] %>% as.numeric()
@@ -137,12 +140,27 @@ comp_rf_slr <- function(csv_i){
             strip.text.y = element_text(size = 15))
    # rf_vi <- read.csv(paste0("data/workingData/", rf_name))
    source("scr/fun_plot_rf_vi.R")
-   p2 <- plot_rf_vi(paste0("run2_", yr, "_fold_", nfold), var_no = 10)
-   grid.arrange(p1, p2, nrow=1)
+   p2 <- plot_rf_vi(paste0("run2_", yr, "_fold_", nfold), var_no = 15)
+   # grid.arrange(p1, p2, nrow=1)
+   
+   var_imp <- read.csv(paste0("data/workingData/GWR_rf_vi_run2_", yr, "_fold_", nfold, ".csv"))
+   p3 <- ggplot(var_imp %>% top_n(20, vi))+
+         geom_col(aes(reorder(var_name, vi), vi),
+                  position = 'dodge', fill='khaki')+
+         coord_flip() +
+         theme_light()+
+         labs(x = 'variable', y = 'importance value (impurity)',
+              title = paste0(yr, "_fold_", nfold, "_gwr_rf"))+
+         theme(axis.title = element_text(size = 13),
+               axis.text = element_text(size = 13),
+               legend.title = element_text(size = 13),
+               legend.text = element_text(size = 13),
+               strip.text.y = element_text(size = 12))
+   grid.arrange(p1, p2, p3, nrow=2, ncol=2)
 }
 
 # comp_rf_slr(4)
-lapply(seq_along(files), comp_rf_slr)
+pp <- lapply(seq_along(files), comp_rf_slr)
 ```
 
 
@@ -157,6 +175,21 @@ Training data was used for training the models using these three algorithms. The
 Averaged error matrix from all folds:
 
 ## Test
+```{r}
+perfm <- lapply(paste0("data/workingData/", list.files("data/workingData/", paste0("perf_m_run2_"))), read.csv)
+perfm <- do.call(rbind, perfm)
+perfmm <- perfm %>% filter(df_type=="test") %>% mutate(run=substr(csv_name, 1, 10), 
+                            nfold=substr(csv_name, 12, 17))
+ggplot(perfmm, aes(x=run, y=rsq, fill=nfold, group=nfold))+
+    geom_bar(stat="identity", position = "dodge2")+
+      facet_grid(model~., scales ='free')+
+      # labs(title=years[[i]])+
+      theme(axis.title = element_text(size = 18),
+          axis.text = element_text(size = 16),
+          legend.title = element_text(size = 16),
+          legend.text = element_text(size = 16),
+          strip.text.y = element_text(size = 15))
+```
 
 ```{r, echo=FALSE}
 perfm <- lapply(seq_along(years), function(i){
@@ -169,10 +202,10 @@ perfm <- lapply(seq_along(years), function(i){
                                                                                       # MAE=mean(MAE),
                                                                                       # rMAE=mean(rMAE),
                                                                                       # rsq_sd=sd(rsq),
-                                                                                      rsq=mean(rsq)) %>% 
-      kbl(full_width=F)#,explained_var=mean(explained_var)
+                                                                                      rsq=mean(rsq))#,explained_var=mean(explained_var)
 })
-do.call(rbind, perfm)
+do.call(rbind, perfm) %>% kable(full_width=F)
+
 ```
 
 
@@ -191,10 +224,9 @@ perfm <- lapply(seq_along(years), function(i){
                                                                                       # MAE=mean(MAE),
                                                                                       # rMAE=mean(rMAE),
                                                                                       # rsq_sd=sd(rsq),
-                                                                                      rsq=mean(rsq)) %>% 
-      kbl(full_width=F)#,explained_var=mean(explained_var)
+                                                                                      rsq=mean(rsq))
 })
-do.call(rbind, perfm)
+do.call(rbind, perfm) %>% kable(full_width=F)
 ```
 
 
