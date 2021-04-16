@@ -1,4 +1,10 @@
 # This script run the three models for multiple single years or multiple years
+# for supervised linear regression model, geographically weighted regression (stepwise),
+# and random forests.
+# But although macc was selected in gwr, the coefficient values were soooo little that it
+# can be regarded as zero...
+# (This is because with measurements included from other extra countries, the performance of the model become very few.)
+
 source("scr/fun_call_lib.R")
 source("scr/o_00_00_read_data.R")
 # Whether to tune RF
@@ -31,6 +37,7 @@ for(yr_i in seq_along(csv_names)){
       source("scr/o_00_01_split_data.R")
       #f# SLR: select predictors
       source("scr/o_00_01_call_predictor.R")
+      # pred_c <- pred_c[!grepl("imd", pred_c)]
       #f# SLR: define/preprocess predictors (direction of effect)
       source("scr/fun_slr_proc_in_data.R")
       train_sub <- proc_in_data(train_sub, neg_pred, "xcoord", "ycoord")
@@ -46,10 +53,14 @@ for(yr_i in seq_along(csv_names)){
                         cv_n = csv_name_fold)
       slr_model <- slr_result[[3]]
       # debug (why macc is not included)
-      slr_model %>% summary
-      lm(paste0("obs~", paste(names(slr_model$coefficients)[-1], collapse = "+"), "+macc") %>% as.formula(),
+      # problem: macc is included if we only use elapse countries
+      # slr_model %>% summary
+      lm(paste0("obs~", paste(c("allRoads_100", "res_500", "majorRoads_100", "macc", "allRoads_2000"), collapse = "+"), "+macc") %>% as.formula(),
          train_sub) %>% summary
       
+         
+      lm(paste0("obs~", paste(names(slr_model$coefficients)[-1], collapse = "+"), "+macc") %>% as.formula(),
+         train_sub) %>% summary
       # Lasso: although the perf of lassso is slightly better than slr, its vif and p-values are high.
       # library(glmnet)
       # set.seed(seed)
@@ -89,7 +100,9 @@ for(yr_i in seq_along(csv_names)){
       #f# SLR: test SLR
       source("scr/fun_output_slr_result.R")
       slr_poll <- output_slr_result(slr_model, test_df = test_sub, train_df = train_sub,
-                                    output_filename = csv_name_fold, obs_varname = 'obs')
+                                    output_filename = csv_name_fold, obs_varname = 'obs',
+                                    outputselect = c("sta_code", "slr", "obs", "res",
+                                      "nfold", "df_type", "year", "index"))
       
       slr_df <- slr_poll[[1]]
       
@@ -162,8 +175,8 @@ for(yr_i in seq_along(csv_names)){
       source("scr/fun_plot_rf_vi.R")
       plot_rf_vi(csv_name_fold, var_no = 10)
       # Model Performance evaluation:
-      # slr_poll$eval_train %>% print()
-      # slr_poll$eval_test %>% print()
+      slr_poll$eval_train %>% print()
+      slr_poll$eval_test %>% print()
       # error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr']) %>%
       #    print()
       # error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr']) %>%
