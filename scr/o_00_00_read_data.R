@@ -17,9 +17,13 @@ no2 <- no2 %>% rename(year=statistics_year, obs=statistic_value, sta_code=statio
 no2_sta <- inner_join(no2 %>% dplyr::select(-country_code), sta %>% dplyr::select("sta_code", "zoneID"), by="sta_code")  # the amount of data decreases because some stations with unkown station types are removed
 
 # Read in predictor values
-road <- read.csv("../EXPANSE_predictor/data/processed/road.csv")
+road <- read.csv("../EXPANSE_predictor/data/processed/road_merged.csv")
+# lc <- read.csv("../EXPANSE_predictor/data/raw/gee/clc_buffer_gee.csv")
+# lc <- lc %>% dplyr::select(-"system.index", -".geo")
+# lc <- lc %>% rename(sta_code=station_european_code)
 lc <- read.csv("../EXPANSE_predictor/data/processed/pred_2006_09.csv")
 macc <- read.csv("../EXPANSE_predictor/data/processed/macc2010_pop2000.csv")
+# pred <- inner_join(road, lc, by="sta_code")
 pred <- inner_join(road, lc, by=names(lc)[names(lc)%in%names(road)])
 pred <- inner_join(pred, macc, by="sta_code")
 # Predictor used 
