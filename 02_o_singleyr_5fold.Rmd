@@ -37,8 +37,6 @@ print(x_varname)
 
 ```
 
-
-
 # Location
 
 The datasets were randomly divided into training and test data, using 'type_of_st' and 'climate_zone' as stratification.
