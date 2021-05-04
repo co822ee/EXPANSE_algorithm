@@ -8,9 +8,9 @@ plot_rf_vi <- function(csv_name, var_no){
       theme_light()+
       labs(x = 'variable', y = 'importance value (impurity)',
            title = csv_name)+
-      theme(axis.title = element_text(size = 13),
-            axis.text = element_text(size = 13),
-            legend.title = element_text(size = 13),
-            legend.text = element_text(size = 13),
-            strip.text.y = element_text(size = 12))
+      theme(axis.title = element_text(size = 11),
+            axis.text = element_text(size = 11),
+            legend.title = element_text(size = 11),
+            legend.text = element_text(size = 11),
+            strip.text.y = element_text(size = 11))
 }

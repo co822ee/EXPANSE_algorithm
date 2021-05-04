@@ -1,4 +1,4 @@
-plot_gwr_coef <- function(csv_i, gwr_model, csv_name, n_row, n_col, eu_bnd){
+plot_gwr_coef <- function(csv_i=1, gwr_model, csv_name, n_row, n_col, eu_bnd){
    # nngbs <- (lapply(paste0("data/workingData/GWR_nngb_", names, ".txt"), read.table) %>% Reduce(rbind,.))[,1]
    # source("scr/fun_setupt_gwr.R")
    # setup <- setup_gwr(train_sub, eu_bnd, 
