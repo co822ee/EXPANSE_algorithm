@@ -155,7 +155,7 @@ slr <- function(POLL, pred, cv_n=1){
    
    for (i in 1:20){
       print(paste("model", i, "R2", models$R2bestmodel[[i]]))
-      if(((models$R2bestmodel[[i]]-temp)/temp)>= 0.01){   #R2 improvement > 1%
+      if(((models$R2bestmodel[[i]]-temp))>= 0.01){   #R2 improvement > 1% (change it to absolute?)
          temp <- models$R2bestmodel[[i]]
          besti <- i
       } else {
