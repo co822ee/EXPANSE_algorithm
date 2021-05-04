@@ -1,17 +1,14 @@
 # This script run the three models for multiple single years or multiple years
 # for supervised linear regression model, geographically weighted regression (stepwise),
 # and random forests.
-# But although macc was selected in gwr, the coefficient values were soooo little that it
-# can be regarded as zero...
-# (This is because with measurements included from other extra countries, the performance of the model become very few.)
 
 source("scr/fun_call_lib.R")
-source("scr/o_00_00_read_data.R")
 # Whether to tune RF
 tuneRF_b = F
 # Multiple single years
 csv_names <- paste0('o_', c(2005:2012))   #2008:2012
 years <- as.list(c(2005:2012))
+nfold <- 5
 # Multiple years
 # csv_names <- paste0('run2_',c('08-10', '09-11', '10-12', '08-12'))   #2008:2012
 # years <- list(2008:2010, 2009:2011, 2010:2012, 2008:2012)
@@ -22,22 +19,44 @@ for(yr_i in seq_along(csv_names)){
    csv_name <- csv_names[yr_i]
    print("********************************************")
    print(csv_name)
-   no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[yr_i]])
-   # data_all <- no2_e_09_11
-   print(paste0("year: ", unique(no2_e_09_11$year)))
-   source("scr/fun_create_fold.R")
-   data_all1 <- create_fold(no2_e_09_11, seed, strt_group=c("sta_type", "zoneID"), nfold = 5)
    
    cluster_no <- 5
    cl <- parallel::makeCluster(cluster_no)
    doParallel::registerDoParallel(cl)
-   foreach(fold_i = seq_len(length(unique(data_all1$nfold))))  %dopar%  {
+   # clusterExport(cl, "csv_names", envir = .GlobalEnv)
+   # clusterExport(cl, "nfold", envir = .GlobalEnv)
+   # clusterExport(cl, "years", envir = .GlobalEnv)
+   # clusterExport(cl, "yr_i", envir = .GlobalEnv)
+   
+   
+   foreach(fold_i=1:nfold)%dopar%{
       source('scr/fun_call_lib.R')
-      source("scr/o_00_00_read_data.R")
-      source("scr/o_00_01_split_data.R")
+      # source("scr/o_00_00_read_data.R")
+      source("scr/o_00_00_read_data_timeVarying.R")
+      # source("scr/o_00_01_split_data.R")
+      csv_name <- csv_names[yr_i]
+      no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[yr_i]])
+      # For elapse country only
+      # elapse_no2 <- read.csv("../EXPANSE_predictor/data/processed/no2_2010_elapse_climate_omi.csv",
+      #                        encoding = "utf-8")
+      # no2_e_09_11 <- no2_e_09_11[no2_e_09_11$sta_code%in%elapse_no2$station_european_code, ]
+      # subgroup for the multiple year modelling for the availability (not done)
+      source("scr/fun_create_fold.R")
+      data_all1 <- create_fold(no2_e_09_11, seed, strt_group=c("sta_type", "zoneID"), 
+                               multiyr_vargroup = "sta_code", 
+                               nfold = nfold)
+      
+      csv_name_fold <- paste0(csv_name, "_fold_", fold_i)
+      test_sub <- data_all1[data_all1$nfold==fold_i,]
+      train_sub <- data_all1[-test_sub$index, ] #data_all1$index starts from 1 to the length.
+      
       #f# SLR: select predictors
-      source("scr/o_00_01_call_predictor.R")
-      # pred_c <- pred_c[!grepl("imd", pred_c)]
+      # source("scr/o_00_01_call_predictor.R")
+      exc_names <- c("sta_code", "component_code", "component_caption", "obs", 
+                     "year", "id", "country_name", "sta_type", "area_type", "areaid", 
+                     "index", "nfold", "xcoord", "ycoord")
+      pred_c <- names(data_all1)[!names(data_all1)%in%exc_names]
+      neg_pred <- pred_c[grepl("nat|ugr", pred_c)]
       #f# SLR: define/preprocess predictors (direction of effect)
       source("scr/fun_slr_proc_in_data.R")
       train_sub <- proc_in_data(train_sub, neg_pred, "xcoord", "ycoord")
@@ -48,55 +67,14 @@ for(yr_i in seq_along(csv_names)){
       source("scr/fun_slr_for.R")
       # check the predictor variables
       print("SLR predictors:")
-      train_sub %>% dplyr::select(matches(pred_c)) %>% names()
-      slr_result <- slr(train_sub$obs, as.data.frame(train_sub[, pred_c]),
+      train_sub %>% dplyr::select(matches(c( pred_c))) %>% names()
+      slr_result <- slr(train_sub$obs, as.data.frame(train_sub[, c( c(pred_c))]),
                         cv_n = csv_name_fold)
       slr_model <- slr_result[[3]]
       # debug (why macc is not included)
       # problem: macc is included if we only use elapse countries
-      # slr_model %>% summary
-      lm(paste0("obs~", paste(c("allRoads_100", "res_500", "majorRoads_100", "macc", "allRoads_2000"), collapse = "+"), "+macc") %>% as.formula(),
-         train_sub) %>% summary
-      
-         
-      lm(paste0("obs~", paste(names(slr_model$coefficients)[-1], collapse = "+"), "+macc") %>% as.formula(),
-         train_sub) %>% summary
-      # Lasso: although the perf of lassso is slightly better than slr, its vif and p-values are high.
-      # library(glmnet)
-      # set.seed(seed)
-      # fit.cv <- glmnet::cv.glmnet(as.matrix(train_sub[,pred_c]), 
-      #                             as.matrix(train_sub[,"obs"]),
-      #                             type.measure = "mse",
-      #                             lower.limits = 0,
-      #                             alpha=1, family="gaussian", nlambda=100) 
-      # 
-      # plot(fit.cv, xvar="lambda", label=TRUE)
-      # set.seed(seed)
-      # fit <- glmnet::glmnet(as.matrix(train_sub[,pred_c]), 
-      #                       as.matrix(train_sub[,"obs"]),
-      #                       lower.limits = 0,      #there is no sink for NO2 in the variables.
-      #                       # type.measure = "mse",
-      #                       alpha=1, family="gaussian", nlambda=100)
-      # plot(fit, xvar="lambda", label=TRUE)
-      # lassoResult <- data.frame(df=fit$df, dev=fit$dev.ratio, lambda=fit$lambda)
-      # # targetDF <- (lassoResult %>% filter(df==3))
-      # targetDF <- (lassoResult[which.max(lassoResult$dev),])
-      # 
-      # set.seed(seed)
-      # best_lam <- targetDF[which.min(targetDF$lambda),]$lambda
-      # userLasso <- glmnet::glmnet(as.matrix(train_sub[,pred_c]), 
-      #                             as.matrix(train_sub[,"obs"]),
-      #                             lower.limits = 0,      #there is no sink for NO2 in the variables.
-      #                             # type.measure = "mse",
-      #                             alpha=1, family="gaussian", lambda = best_lam)
-      # predName <- coef(userLasso)[-1,][which(coef(userLasso)[-1]!=0)] %>% names()
-      # predCoef <- coef(userLasso)[-1][which(coef(userLasso)[-1]!=0)]
-      # lur <- data.frame(predName=factor(predName, levels = predName), predCoef=predCoef)
-      # intercept <- coef(userLasso)[1]
-      # lm_lasso <- lm(as.formula(paste0("obs~", paste(predName, collapse = "+"))), train_sub)
-      # summary(lm_lasso)
-      # error_matrix(as.matrix(train_sub[, "obs"]),predict(userLasso, as.matrix(train_sub[,pred_c])))
-      
+      slr_model %>% summary
+     
       #f# SLR: test SLR
       source("scr/fun_output_slr_result.R")
       slr_poll <- output_slr_result(slr_model, test_df = test_sub, train_df = train_sub,
@@ -124,7 +102,9 @@ for(yr_i in seq_along(csv_names)){
       #f# GWR: perform cross-validation
       source("scr/fun_output_gwr_result.R")
       gwr_df <- output_gwr_result(gwr_model, train_sub, test_sub, local_crs,
-                                  output_filename = csv_name_fold, xcoord="xcoord", ycoord="ycoord")
+                                  output_filename = csv_name_fold, xcoord="xcoord", ycoord="ycoord",
+                                  outputselect = c("sta_code", "gwr", "obs", "res",
+                                                   "nfold", "df_type", "year", "index"))
       if(fold_i==1){
          # Only plot the parameter surface for the first fold for every year
          source('scr/fun_plot_gwr_coef.R')
@@ -132,6 +112,32 @@ for(yr_i in seq_along(csv_names)){
       }
       # plot gwr surface
       ncol(gwr_model$SDF) %>% print()  # the number of predictors selected
+      
+      
+      # use RF to explain residuals from GWR
+      gwr_df2 <- inner_join(gwr_df, data_all, by=c("sta_code", "year", "obs", "nfold", "index"))
+      rf_res <- ranger(
+         formula = as.formula(paste0("res~", paste(pred_c, collapse = "+"))),
+         data = gwr_df2[gwr_df2$df_type=="train", ],
+         num.trees = 500,
+         seed = seed,
+         importance = 'impurity'          # 'permutation'
+      )
+      
+      gwr_rf_result <- data.frame(gwr_rf = (predict(rf_res, gwr_df2) %>% predictions()) + gwr_df2$gwr,
+                                  obs = gwr_df2[, "obs"]) %>% 
+         mutate(res = obs - gwr_rf) %>% 
+         cbind(gwr_df2 %>% dplyr::select(-all_of("obs"))) 
+      write.csv(gwr_rf_result, 
+                paste0('data/workingData/GWR_rf_result_all_', csv_name_fold, '.csv'), 
+                row.names = F)
+      
+      var_importance_gwr <- data.frame(var_name = rf_res$variable.importance %>% names, 
+                                       vi = rf_res$variable.importance %>% as.numeric())
+      var_importance_gwr <- var_importance_gwr[with(var_importance_gwr, order(-vi)), ]
+      write.csv(var_importance_gwr, paste0('data/workingData/GWR_rf_vi_', csv_name_fold, '.csv'), 
+                row.names = F)
+      
       #--------- RF: split data into train, validation, and test data--------
       print("--------------- RF ---------------")
       set.seed(seed)
@@ -141,7 +147,7 @@ for(yr_i in seq_along(csv_names)){
       # test_df <- data_all[index$test, ]
       train_df <- train_sub
       test_df <- test_sub
-      pred_c_rf <- c(pred_c) #"x_trun", "y_trun"
+      pred_c_rf <- c(pred_c) #"x_trun", "y_trun"  ,  "cntr_code"
       x_varname = names(data_all %>% dplyr::select(matches(pred_c_rf)))
       print("RF predictors:")
       print(x_varname)
@@ -171,35 +177,36 @@ for(yr_i in seq_along(csv_names)){
       rf_result <- opt_rf(train_df, test_df,
                           y_varname='obs',
                           x_varname = x_varname,
-                          csv_name_fold, hyper_grid, tuneRF_b)
+                          csv_name_fold, hyper_grid, tuneRF_b,
+                          outputselect = c("sta_code", "rf", "obs", "res",
+                                           "nfold", "df_type", "year", "index"))
       source("scr/fun_plot_rf_vi.R")
       plot_rf_vi(csv_name_fold, var_no = 10)
       # Model Performance evaluation:
       slr_poll$eval_train %>% print()
       slr_poll$eval_test %>% print()
-      # error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr']) %>%
-      #    print()
-      # error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr']) %>%
-      #    print()
+      error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr']) %>%
+         print()
+      error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr']) %>%
+         print()
       rf_result$eval_train
       rf_result$eval_test
       # rf_result$rf_result %>% names
       # output all models' performance matrix
-      output_em <- function(pred_df, csv_name, model, year, obs_name, pred_name){
-         error_matrix(pred_df[pred_df$df_type=='train', 'obs'], pred_df[pred_df$df_type=='train', 'gwr'])
-
+      output_em <- function(pred_df, csv_name, model, year, obs_name){
          em <- rbind(error_matrix(pred_df[pred_df$df_type=='test', 'obs'], pred_df[pred_df$df_type=='test', model]) ,
                      error_matrix(pred_df[pred_df$df_type=='train', 'obs'], pred_df[pred_df$df_type=='train', model])) %>%
             as.data.frame()
          # em[, c(1, 5, 7)]
-
+         
          perf_matrix <- em %>% mutate(df_type=c('test','train'), model=model, n_fold=fold_i,
                                       year=year, csv_name=csv_name)
          perf_matrix
       }
-      out_pm <- rbind(output_em(slr_df, csv_name_fold, 'slr', years[[yr_i]], "obs", "slr"),
-                      output_em(gwr_df, csv_name_fold, 'gwr', years[[yr_i]], "obs", "gwr"),
-                      output_em(rf_result$rf_result, csv_name_fold, 'rf', years[[yr_i]], "obs", "rf")
+      out_pm <- rbind(output_em(slr_df, csv_name_fold, 'slr', years[[yr_i]], "obs"),
+                      output_em(gwr_df, csv_name_fold, 'gwr', years[[yr_i]], "obs"),
+                      output_em(gwr_rf_result, csv_name_fold, "gwr_rf", years[[yr_i]], "obs"),
+                      output_em(rf_result$rf_result, csv_name_fold, 'rf', years[[yr_i]], "obs")
       )
       write.csv(out_pm, paste0("data/workingData/perf_m_",csv_name_fold, '.csv'), row.names = F)
    }
