@@ -1,6 +1,6 @@
 source("scr/fun_call_lib.R")
 # source("scr/o_00_00_read_data.R")
-source("scr/o_00_00_read_data_timeVarying.R")
+source("../expanse_multiyear/src/00_fun_read_data.R")
 # Multiple single years
 csv_names <- paste0('o_', c(2005:2012))   #2008:2012
 years <- as.list(c(2005:2012))
@@ -30,7 +30,7 @@ write_output_5csv <- function(year_i){
    rf_test <- do.call(rbind, rf_test)
    
    all_test <- cbind(gwr=gwr_test$gwr, gwr_rf=gwr_rf_test$gwr_rf, rf=rf_test$rf, slr_test)
-   write.csv(all_test, paste0("data/workingData/o_NO2_5cv_", years[[year_i]], ".csv"))
+   write.csv(all_test, paste0("data/workingData/o_NO2_5cv_", years[[year_i]], ".csv"), row.names = F)
    
 }
 lapply(seq_along(csv_names), write_output_5csv)

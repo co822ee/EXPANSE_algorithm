@@ -32,7 +32,7 @@ for(yr_i in seq_along(csv_names)){
    foreach(fold_i=1:nfold)%dopar%{
       source('scr/fun_call_lib.R')
       # source("scr/o_00_00_read_data.R")
-      source("scr/o_00_00_read_data_timeVarying.R")
+      source("../expanse_multiyear/src/00_fun_read_data.R")
       # source("scr/o_00_01_split_data.R")
       csv_name <- csv_names[yr_i]
       no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[yr_i]])
@@ -180,8 +180,18 @@ for(yr_i in seq_along(csv_names)){
                           csv_name_fold, hyper_grid, tuneRF_b,
                           outputselect = c("sta_code", "rf", "obs", "res",
                                            "nfold", "df_type", "year", "index"))
+      # var_importance <- read.csv(paste0('data/workingData/RF_vi_', csv_name_fold, '.csv'), 
+      #                            header = T) %>% top_n(120, vi)
+      # rf_result2 <- opt_rf(train_df, test_df,
+      #                     y_varname='obs',
+      #                     x_varname = var_importance$var_name,
+      #                     paste0(csv_name_fold, "_50"), hyper_grid, tuneRF_b,
+      #                     outputselect = c("sta_code", "rf", "obs", "res",
+      #                                      "nfold", "df_type", "year", "index"))
       source("scr/fun_plot_rf_vi.R")
       plot_rf_vi(csv_name_fold, var_no = 10)
+      # plot_rf_vi(paste0(csv_name_fold, "_50"), var_no = 10)
+      # rf_result2$eval_test
       # Model Performance evaluation:
       slr_poll$eval_train %>% print()
       slr_poll$eval_test %>% print()
