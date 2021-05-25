@@ -24,7 +24,7 @@ for(yr_i in seq_along(csv_names)){
    no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[yr_i]])
    # data_all <- no2_e_09_11
    print(paste0("year: ", unique(no2_e_09_11$year)))
-   source("scr/fun_create_fold.R")
+   source("../expanse_multiyear/src/00_fun_create_fold.R")
    data_all1 <- create_fold(no2_e_09_11, seed, strt_group=c("sta_type", "zoneID"), nfold = 5)
    
    cluster_no <- 5
@@ -36,7 +36,7 @@ for(yr_i in seq_along(csv_names)){
       csv_name <- csv_names[yr_i]
       no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[yr_i]])
       # data_all <- no2_e_09_11
-      source("scr/fun_create_fold.R")
+      source("../expanse_multiyear/src/00_fun_create_fold.R")
       data_all1 <- create_fold(no2_e_09_11, seed, strt_group=c("sta_type", "zoneID"), nfold = 5)
    
       csv_name_fold <- paste0(csv_name, "_fold_", fold_i)
