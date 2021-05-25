@@ -1,5 +1,5 @@
 source("scr/fun_call_lib.R")
-source("scr/fun_create_fold.R")
+source("../expanse_multiyear/src/00_fun_create_fold.R")
 source("scr/fun_read_data.R")
 source("scr/fun_call_predictor.R")
 years <- 2010
@@ -77,7 +77,7 @@ library(gridExtra)
 library(RColorBrewer)
 mypalette.1 <- viridis(5)
 source("scr/fun_call_lib.R")
-source("scr/fun_create_fold.R")
+source("../expanse_multiyear/src/00_fun_create_fold.R")
 source("scr/fun_read_data.R")
 source("scr/fun_call_predictor.R")
 years <- 2010

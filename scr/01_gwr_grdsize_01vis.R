@@ -10,7 +10,7 @@ n_fold <- 1
 no2_e_09_11 <- subset_df_yrs(no2_e_all, target_yr)
 # data_all <- no2_e_09_11
 print(paste0("year: ", unique(no2_e_09_11$year)))
-source("scr/fun_create_fold.R")
+source("../expanse_multiyear/src/00_fun_create_fold.R")
 data_all1 <- create_fold(no2_e_09_11, seed)
 test_sub <- data_all1[data_all1$nfold==n_fold,]
 train_sub <- data_all1[-test_sub$index, ] #data_all1$index starts from 1 to the length.

@@ -5,7 +5,7 @@ no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[yr_i]])
 #                        encoding = "utf-8")
 # no2_e_09_11 <- no2_e_09_11[no2_e_09_11$sta_code%in%elapse_no2$station_european_code, ]
 # subgroup for the multiple year modelling for the availability (not done)
-source("scr/fun_create_fold.R")
+source("../expanse_multiyear/src/00_fun_create_fold.R")
 data_all1 <- create_fold(no2_e_09_11, seed, strt_group=c("sta_type", "zoneID"), 
                          multiyr_vargroup = "sta_code", 
                          nfold = nfold)

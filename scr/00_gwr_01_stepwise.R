@@ -13,6 +13,7 @@ output <- data.frame(variables=0, increR2=0)
 source("scr/fun_read_data.R")
 regression_grd_cellsize <- 200   #km
 year_target <- 2009
+fold_i <- 1
 kernel_type <- "exponential"
 reg_grdsize <- regression_grd_cellsize*1000
 csv_name <- paste0('stepGWR_', regression_grd_cellsize, "_", year_target)
@@ -22,19 +23,17 @@ no2_e_09_11 <- subset_df_yrs(no2_e_all, year_target)
 data_all <- no2_e_09_11
 
 #f# stratified by station types, climate zones and/or years
-set.seed(seed)
-data_all$index <- 1:nrow(data_all)
-train_sub <- stratified(data_all, c('type_of_st', 'zoneID'), 0.8)
-test_sub <- data_all[-train_sub$index, ]
-data_all <- rbind(train_sub, test_sub)
-# --> yes indeed the stations are not the same in training and test data
-#TODO we need to look at the groups separately or in combined?
+source("../expanse_multiyear/src/00_fun_create_fold.R")
+data_all1 <- create_fold(no2_e_09_11, seed, strt_group=c('type_of_st', 'zoneID'))
+test_sub <- data_all1[data_all1$nfold==fold_i,]
+train_sub <- data_all1[-test_sub$index, ] #data_all1$index starts from 1 to the length.
 #f# SLR: select predictors
 source("scr/fun_call_predictor.R")
 #f# SLR: define/preprocess predictors (direction of effect)
 source("scr/fun_slr_proc_in_data.R")
 train_sub <- proc_in_data(train_sub, neg_pred)
 test_sub <- proc_in_data(test_sub, neg_pred)
+data_all <- rbind(train_sub, test_sub)
 #------------------Above code is needed for all algorithms----------------------
 #---------#f# SLR: train SLR -----------
 
@@ -48,7 +47,7 @@ test_sub <- proc_in_data(test_sub, neg_pred)
 # set up GWR
 print("GWR")
 source("scr/fun_setupt_gwr.R")
-setup <- setup_gwr(train_sub, eu_bnd, 
+setup <- setup_gwr(as.data.frame(train_sub), eu_bnd, 
                    cellsize = reg_grdsize, local_crs = local_crs)
 sp_train <- setup[[1]]
 grd <- setup[[2]]
@@ -223,7 +222,8 @@ while(step_i<=10){  #(as.numeric(output[step_i,2])-as.numeric(output[step_i-1,2]
    R2 <- unlist(R2_l)
    x_highest <- x_var_new[which.max(R2)]
    R2_highest <- max(R2)
-   if(R2_highest!=0){
+   R2_imp <- R2_highest-as.numeric(output[step_i-1, ]$increR2)  #absolute improvement larger than 0.01
+   if(R2_highest!=0 & R2_imp>=0.01){
       output[step_i,] <- cbind(variables=x_highest, increR2=R2_highest)
       print(output)
       step_i <- step_i+1
@@ -232,6 +232,75 @@ while(step_i<=10){  #(as.numeric(output[step_i,2])-as.numeric(output[step_i-1,2]
    }
 }
 output
+# For each step, it took around 4mins.
+# Coefficients:
+#    Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)  1.444e+00  6.765e-01   2.134    0.033 *  
+#    ROADS_EU_20p 1.749e-04  1.439e-05  12.151   <2e-16 ***
+#    no2_10MACC   8.901e-01  3.983e-02  22.350   <2e-16 ***
+#    MAJRDS_EU_1p 2.011e-02  1.324e-03  15.191   <2e-16 ***
+#    clc10_4p     1.679e-01  1.630e-02  10.299   <2e-16 ***
+#    ---
+#    Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Residual standard error: 10.05 on 1746 degrees of freedom
+# Multiple R-squared:  0.5493,	Adjusted R-squared:  0.5483 
+# F-statistic:   532 on 4 and 1746 DF,  p-value: < 2.2e-16
+# >       slr_poll$eval_train %>% print()
+# RMSE         RRMSE           IQR          rIQR 
+# 10.0329670     0.3669269    10.0458877     0.3951030 
+# MAE          rMAE           rsq explained_var 
+# 7.2550727     0.2653334     0.5495425     0.5492851 
+# >       slr_poll$eval_test %>% print()
+# RMSE         RRMSE           IQR          rIQR 
+# 9.6477000     0.3572335     8.6107962     0.3517267 
+# MAE          rMAE           rsq explained_var 
+# 6.8239707     0.2526769     0.6296898     0.6289046 
+
+#### Stepwise GWR
+# variables           increR2
+# 1 ROADS_EU_50p  0.51228471690108
+# 2  ROADS_EU_2p 0.589688105398494
+# 3   no2_10MACC 0.613626283844898
+# 4       RES_10 0.643259552162395
+# Test data
+# explained_var 
+# 0.6458668 
+### SLR-GWR
+# >       error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr']) %>%
+#    +          print()
+# RMSE         RRMSE           IQR          rIQR           MAE          rMAE 
+# 8.8259368     0.3227832     8.6356210     0.3396374     6.2738950     0.2294496 
+# rsq explained_var 
+# 0.6514086     0.6512129 
+# >       error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr']) %>%
+#    +          print()
+# RMSE         RRMSE           IQR          rIQR           MAE          rMAE 
+# 9.2581390     0.3428089     7.8868546     0.3221557     6.2891136     0.2328723 
+# rsq explained_var 
+# 0.6589913     0.6582121 
+
+## Test data performance 
+eq_gwr <- as.formula(paste0("obs~", paste(output$variables, collapse = "+")))
+nngb <- bw.gwr(eq_gwr, data=sp_train, approach = "CV", kernel = kernel_type,
+               adaptive = T, dMat = DM_1)
+gwr_m <- tryCatch(gwr.basic(eq_gwr,
+                            data=sp_train,
+                            regression.points=grd,
+                            adaptive = T,
+                            bw=nngb,
+                            dMat=DM,
+                            kernel=kernel_type), 
+                  error=function(e) T)
+source("scr/fun_gen_df_gwr.R")
+coef_stack <- stack(gwr_m$SDF)
+sp_test <- sp::SpatialPointsDataFrame(data = test_sub,
+                                      coords = cbind(test_sub[, "Xcoord"], test_sub[, "Ycoord"]),
+                                      proj4string = local_crs)
+gwr_pred <- gen_df_gwr(coef_stack, sp_test, as.data.frame(sp_test), T)
+error_matrix(as.data.frame(sp_test)$obs, gwr_pred)[8]  #explained_var
+
+
 # Exclusion
 # R2 improvement less than 1%
 if(any(diff(output$increR2)<0.01)) output <- output[-(which(diff(output$increR2)<0.01)+1),]
