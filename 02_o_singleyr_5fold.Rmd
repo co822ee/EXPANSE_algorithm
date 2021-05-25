@@ -17,23 +17,37 @@ eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
 
 ```
 
+After the year of 2006, the corine data was linearly interpolated:
+
 ```{r read prediction results (5-fold test data)}
 # Here we read the predictions for test data from all five-folds
-csv_names <- paste0('o_NO2_5cv_', c(2005:2012))
-years <- as.list(seq(2005, 2012))
+csv_names <- paste0('o_NO2_5cv_', c(2006:2012))
+years <- as.list(seq(2006, 2012))
+nfold=5
 all_test <- lapply(paste0("data/workingData/", csv_names, ".csv"), read.csv)
 # lapply(all_test, nrow)
 ```
 
+
 The predictors used in SLR, GWR, RF were the same.
 
 ```{r predictors in LUR}
-source("scr/o_00_00_read_data.R")
-pred_c_rf <- c(pred_c) #"x_trun", "y_trun"
-x_varname = names(all_test[[1]] %>% dplyr::select(matches(pred_c_rf)))
-print("Predictors used:")
-print(x_varname)
-
+source("../expanse_multiyear/src/00_fun_read_data.R")
+yr_i=2
+csv_name <- csv_names[yr_i]
+no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[yr_i]])
+source("scr/fun_create_fold.R")
+data_all1 <- create_fold(no2_e_09_11, seed, strt_group=c("sta_type", "zoneID"), 
+                         multiyr_vargroup = "sta_code", 
+                         nfold = nfold)
+#f# SLR: select predictors
+# source("scr/o_00_01_call_predictor.R")
+exc_names <- c("sta_code", "component_code", "component_caption", "obs", 
+               "year", "id", "country_name", "sta_type", "area_type", "areaid", 
+               "index", "nfold", "xcoord", "ycoord")
+pred_c <- names(data_all1)[!names(data_all1)%in%exc_names]
+neg_pred <- pred_c[grepl("nat|ugr", pred_c)]
+pred_c
 
 ```
 
@@ -72,13 +86,14 @@ The model performance of GWR kinda vary greatly among folds.
 
 ```{r}
 
-
 show_EM <- function(all_df_i){
    gwr=all_test[[all_df_i]]$gwr
+   gwr_rf=all_test[[all_df_i]]$gwr_rf
    slr=all_test[[all_df_i]]$slr
    rf=all_test[[all_df_i]]$rf
    df_all <- data.frame(slr=error_matrix(all_test[[all_df_i]]$obs, slr),
            gwr=error_matrix(all_test[[all_df_i]]$obs, gwr),
+           gwr_rf=error_matrix(all_test[[all_df_i]]$obs, gwr_rf),
            rf=error_matrix(all_test[[all_df_i]]$obs, rf),
            yr=years[[all_df_i]])[c(1,5,7),]
    df_all$EM = row.names(df_all)
@@ -108,14 +123,6 @@ ggplot(em_df %>% filter(EM=='RMSE') %>%  gather("model", "values", -c("yr", "EM"
           legend.title = element_text(size = 16),
           legend.text = element_text(size = 16),
           strip.text.y = element_text(size = 15))
-# ggplot(perfm)+
-#       geom_boxplot(aes(x=model, y=rsq))+
-#       facet_grid(df_type~., scales ='free')+
-#       labs(title=years[[i]])+
-#       theme(axis.title = element_text(size = 18),
-#           axis.text = element_text(size = 16),
-#           legend.title = element_text(size = 16),
-#           legend.text = element_text(size = 16))
 
 
 ```
@@ -132,7 +139,7 @@ There are two differences in the predictors of ELAPSE and the current predictors
 * MACC is not selected in SLR but is influential in RF.
 
 
-```{r selected predictors in slr, fig.width = 8, fig.height = 3.6}
+```{r selected predictors in slr, fig.width = 10, fig.height = 3.6}
 comp_rf_slr <- function(csv_i){
    slr_name <- list.files("data/workingData/", "SLR_summary_model_o")[csv_i]
    yr <- strsplit(slr_name, "_")[[1]][5] %>% as.numeric()
@@ -160,7 +167,22 @@ comp_rf_slr <- function(csv_i){
    # rf_vi <- read.csv(paste0("data/workingData/", rf_name))
    source("scr/fun_plot_rf_vi.R")
    p2 <- plot_rf_vi(paste0("o_", yr, "_fold_", nfold), var_no = 10)
-   grid.arrange(p1, p2, nrow=1)
+   
+   var_importance <- read.csv(paste0('data/workingData/GWR_rf_vi_o_', yr, '_fold_', nfold, '.csv'), 
+                              header = T)
+   p3 <- ggplot(var_importance %>% top_n(10, vi))+
+      geom_col(aes(reorder(var_name, vi), vi),
+               position = 'dodge', fill='khaki')+
+      coord_flip() +
+      theme_light()+
+      labs(x = 'variable', y = 'importance value (impurity)',
+           title = paste0("GWR_RF_", yr, "_fold_", nfold))+
+      theme(axis.title = element_text(size = 11),
+            axis.text = element_text(size = 11),
+            legend.title = element_text(size = 11),
+            legend.text = element_text(size = 11),
+            strip.text.y = element_text(size = 11))
+   grid.arrange(p1, p2, p3, nrow=1)  
 }
 
 # comp_rf_slr(4)
