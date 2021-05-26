@@ -4,10 +4,10 @@
 
 source("scr/fun_call_lib.R")
 # Whether to tune RF
-target_poll = 'NO2'
-tuneRF_b = F
+# target_poll = 'NO2'
+tuneRF_b = T
 # Multiple single years
-csv_names <- paste0('o_', c(2005:2012))   #2008:2012
+csv_names <- paste0('o_gwrid_', c(2005:2012))   #2008:2012
 years <- as.list(c(2005:2012))
 nfold <- 5
 # Multiple years
@@ -31,6 +31,7 @@ for(yr_i in seq_along(csv_names)){
    
    
    foreach(fold_i=1:nfold)%dopar%{
+      # target_poll = 'NO2'
       source('scr/fun_call_lib.R')
       # source("scr/o_00_00_read_data.R")
       source("../expanse_multiyear/src/00_fun_read_data.R")
@@ -54,7 +55,7 @@ for(yr_i in seq_along(csv_names)){
       # source("scr/o_00_01_call_predictor.R")
       exc_names <- c("sta_code", "component_code", "component_caption", "obs", 
                      "year", "id", "country_name", "sta_type", "area_type", "areaid", 
-                     "index", "nfold", "xcoord", "ycoord")
+                     "index", "nfold", "xcoord", "ycoord", 'zoneID', 'cntr_code')
       pred_c <- names(data_all1)[!names(data_all1)%in%exc_names]
       neg_pred <- pred_c[grepl("nat|ugr", pred_c)]
       #f# SLR: define/preprocess predictors (direction of effect)
@@ -72,7 +73,7 @@ for(yr_i in seq_along(csv_names)){
                         cv_n = csv_name_fold)
       slr_model <- slr_result[[3]]
       # debug (why macc is not included)
-      # problem: macc is included if we only use elapse countries
+      
       slr_model %>% summary
      
       #f# SLR: test SLR
@@ -189,7 +190,7 @@ for(yr_i in seq_along(csv_names)){
       #                     outputselect = c("sta_code", "rf", "obs", "res",
       #                                      "nfold", "df_type", "year", "index"))
       source("scr/fun_plot_rf_vi.R")
-      plot_rf_vi(csv_name_fold, var_no = 10)
+      plot_rf_vi(csv_name_fold, var_no = 15)
       # plot_rf_vi(paste0(csv_name_fold, "_50"), var_no = 10)
       # rf_result2$eval_test
       # Model Performance evaluation:
