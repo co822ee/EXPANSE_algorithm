@@ -1,8 +1,8 @@
 source('scr/fun_call_lib.R')
-elapse_no2 <- read.csv("../test_EXPANSE_NO2/data/rawData/AIRBASE_NO2_2010_variables.csv",
-                       encoding = "utf-8")
+# elapse_no2 <- read.csv("../test_EXPANSE_NO2/data/rawData/AIRBASE_NO2_2010_variables.csv",
+#                        encoding = "utf-8")
 # https://code.earthengine.google.com/ea63b894df693a2d111ad32d430913c6?noload=1
-# elapse_no2 <- read.csv("~/Downloads/predictorsOnGEE.csv")
+elapse_no2 <- read.csv("~/Downloads/predictorsOnGEE.csv")
 
 #f# SLR: select predictors
 # pred_c <- c(c('alt_t', 'pop2011'),  #'x_trun', 'y_trun',
@@ -17,23 +17,23 @@ elapse_no2 <- read.csv("../test_EXPANSE_NO2/data/rawData/AIRBASE_NO2_2010_variab
 #             'RES') #year
 neg_pred <- c('alt_t', 'clc14', 'clc7')
 y_var <- "NO2_2010"
-station_info <- c(  'PREDNO2LURFULL',
-                    'system:index',
-                    'country_is',
-                    'XY',
-                    'REGION',
-                    'Station',
-                    'strata_run5',
-                    'airid',
-                    'type_of_st',
-                    'Xcoord', 'Ycoord',
-                    y_var)
-# station_info <- c(  
-#                     'system.index',
+# station_info <- c(  'PREDNO2LURFULL',
+#                     'system:index',
+#                     'country_is',
+#                     'XY',
+#                     'REGION',
 #                     'Station',
 #                     'strata_run5',
-#                     '.geo',
+#                     'airid',
+#                     'type_of_st',
+#                     'Xcoord', 'Ycoord',
 #                     y_var)
+station_info <- c(
+                    'system.index',
+                    'Station',
+                    'strata_run5',
+                    '.geo',
+                    y_var)
 #f# SLR: define/preprocess predictors (direction of effect)
 data_all <- elapse_no2 %>% as_tibble() %>% 
    mutate(across(matches(neg_pred), function(x) -x )) %>% as.data.frame()
@@ -55,13 +55,7 @@ slr_result <- slr(data_all[, y_var], data_all %>% dplyr::select(x_var) %>% as.da
 read.csv("data/workingData/SLR_summary_model_2010_all.csv", header=T)
 slr_model <- slr_result[[3]]
 slr_model %>% summary()
-# Fit variogram (universal kriging)
-res_vario <- variogram(as.formula(paste0(y_var,"~", paste(names(slr_model$coefficients[-1]), collapse = "+"))), 
-                       data=data_all, locations=~Xcoord+Ycoord)
-plot(res_vario,  fit.variogram(res_vario, model=vgm(NA, "Sph", NA, NA)))
-plot(res_vario,  fit.variogram(res_vario, model=vgm(NA, "Exp", NA, NA)))
-fit.variogram(res_vario, model=vgm(NA, "Sph", NA, NA))
-as.formula(paste0(y_var,"~", paste(names(slr_model$coefficients[-1]), collapse = "+")))
+
 # Check VIF
 vif(slr_model)
 source("scr/fun_gen_pred_df.R")
@@ -71,9 +65,21 @@ slr_gee <- read.csv("~/Downloads/implementSLR.csv")
 
 comp <- inner_join(slr_poll, slr_gee, by="Station")
 plot(comp$slr_no2, comp$slr, xlab='GEE', ylab='Rstudio')
+plot(comp$slr_no2, comp$PREDNO2LURFULL, xlab='GEE', ylab='Elapse')
+plot(comp$slr, comp$PREDNO2LURFULL, xlab='Rstudio', ylab='Elapse')
+
 write.csv(slr_poll, 
           paste0('data/workingData/SLR_result_all_', "2010_all", '.csv'), 
           row.names = F)
+
+# Fit variogram (universal kriging)
+res_vario <- variogram(as.formula(paste0(y_var,"~", paste(names(slr_model$coefficients[-1]), collapse = "+"))), 
+                       data=data_all, locations=~Xcoord+Ycoord)
+plot(res_vario,  fit.variogram(res_vario, model=vgm(NA, "Sph", NA, NA)))
+plot(res_vario,  fit.variogram(res_vario, model=vgm(NA, "Exp", NA, NA)))
+fit.variogram(res_vario, model=vgm(NA, "Sph", NA, NA))
+as.formula(paste0(y_var,"~", paste(names(slr_model$coefficients[-1]), collapse = "+")))
+
 
 #-----
 # only elapse and new data (only road is new) 
