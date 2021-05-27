@@ -22,7 +22,7 @@ opt_rf <- function(df_train, df_test, y_varname, x_varname, csv_name,
          formula = eq,
          data = df_train,
          num.trees = 500,
-         mtry = floor(length(x_varname)),
+         mtry = floor(sqrt(length(x_varname))),
          seed = seed,
          importance = 'impurity'          # 'permutation'
       )

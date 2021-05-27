@@ -21,7 +21,7 @@ After the year of 2006, the corine data was linearly interpolated:
 
 ```{r read prediction results (5-fold test data)}
 # Here we read the predictions for test data from all five-folds
-csv_names <- paste0('o_NO2_5cv_', c(2006:2012))
+csv_names <- paste0('o_gwrid_NO2_5cv_', c(2006:2012))
 years <- as.list(seq(2006, 2012))
 nfold=5
 all_test <- lapply(paste0("data/workingData/", csv_names, ".csv"), read.csv)
@@ -36,15 +36,14 @@ source("../expanse_multiyear/src/00_fun_read_data.R")
 yr_i=2
 csv_name <- csv_names[yr_i]
 no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[yr_i]])
-source("scr/fun_create_fold.R")
+source("../expanse_multiyear/src/00_fun_create_fold.R")
 data_all1 <- create_fold(no2_e_09_11, seed, strt_group=c("sta_type", "zoneID"), 
-                         multiyr_vargroup = "sta_code", 
-                         nfold = nfold)
+                               nfold = nfold)
 #f# SLR: select predictors
 # source("scr/o_00_01_call_predictor.R")
 exc_names <- c("sta_code", "component_code", "component_caption", "obs", 
-               "year", "id", "country_name", "sta_type", "area_type", "areaid", 
-               "index", "nfold", "xcoord", "ycoord")
+                     "year", "id", "country_name", "sta_type", "area_type", "areaid", 
+                     "index", "nfold", "xcoord", "ycoord", 'zoneID', 'cntr_code')
 pred_c <- names(data_all1)[!names(data_all1)%in%exc_names]
 neg_pred <- pred_c[grepl("nat|ugr", pred_c)]
 pred_c
@@ -63,8 +62,9 @@ maps_l <- lapply(seq_along(years), function(yr_i){
    no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[yr_i]])
    # data_all <- no2_e_09_11
    print(paste0("year: ", unique(no2_e_09_11$year)))
-   source("scr/fun_create_fold.R")
-   data_all1 <- create_fold(no2_e_09_11, seed, strt_group = c("sta_type", "zoneID"))
+   source("../expanse_multiyear/src/00_fun_create_fold.R")
+data_all1 <- create_fold(no2_e_09_11, seed, strt_group=c("sta_type", "zoneID"), 
+                               nfold = nfold)
    EU_sp <- st_as_sf(data_all1, coords = c("xcoord", "ycoord"))
    st_crs(EU_sp) <- st_crs(3035)
    
@@ -141,9 +141,9 @@ There are two differences in the predictors of ELAPSE and the current predictors
 
 ```{r selected predictors in slr, fig.width = 10, fig.height = 3.6}
 comp_rf_slr <- function(csv_i){
-   slr_name <- list.files("data/workingData/", "SLR_summary_model_o")[csv_i]
-   yr <- strsplit(slr_name, "_")[[1]][5] %>% as.numeric()
-   nfold <- (strsplit(slr_name, "_")[[1]][7] %>% strsplit(., ".csv"))[[1]] %>% as.numeric()
+   slr_name <- list.files("data/workingData/", "SLR_summary_model_o_gwrid_")[csv_i]
+   yr <- strsplit(slr_name, "_")[[1]][6] %>% as.numeric()
+   nfold <- (strsplit(slr_name, "_")[[1]][8] %>% strsplit(., ".csv"))[[1]] %>% as.numeric()
    # rf_name <- paste0("RF_vi_o_", yr, "_fold_", nfold, ".csv")
    slr_result <- read.csv(paste0("data/workingData/", slr_name), header=T)
    slr_result$yr <- yr
@@ -166,9 +166,9 @@ comp_rf_slr <- function(csv_i){
             strip.text.y = element_text(size = 12))
    # rf_vi <- read.csv(paste0("data/workingData/", rf_name))
    source("scr/fun_plot_rf_vi.R")
-   p2 <- plot_rf_vi(paste0("o_", yr, "_fold_", nfold), var_no = 10)
+   p2 <- plot_rf_vi(paste0("o_gwrid_", yr, "_fold_", nfold), var_no = 10)
    
-   var_importance <- read.csv(paste0('data/workingData/GWR_rf_vi_o_', yr, '_fold_', nfold, '.csv'), 
+   var_importance <- read.csv(paste0('data/workingData/GWR_rf_vi_o_gwrid_', yr, '_fold_', nfold, '.csv'), 
                               header = T)
    p3 <- ggplot(var_importance %>% top_n(10, vi))+
       geom_col(aes(reorder(var_name, vi), vi),
@@ -186,7 +186,7 @@ comp_rf_slr <- function(csv_i){
 }
 
 # comp_rf_slr(4)
-lapply(seq_along(list.files("data/workingData/", "SLR_summary_model_o")), comp_rf_slr)
+lapply(seq_along(list.files("data/workingData/", "SLR_summary_model_o_gwrid_")), comp_rf_slr)
 ```
 
 # Performance matrix
