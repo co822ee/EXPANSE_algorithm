@@ -2,8 +2,14 @@ source("scr/fun_call_lib.R")
 # source("scr/o_00_00_read_data.R")
 source("../expanse_multiyear/src/00_fun_read_data.R")
 # Multiple single years
-csv_names <- paste0('o_gwrid_', c(2005:2012))   #2008:2012
-years <- as.list(c(2005:2012))
+target_poll = 'PM2.5'
+csv_names <- gsub('SLR_result_all_', '', 
+                  list.files('data/workingData/', 
+                             paste0('SLR_result_all_o2_zoneID_', target_poll))) %>% 
+   strsplit(., '_fold_') %>% lapply(., `[[`, 1) %>% unlist() %>% unique
+years <- csv_names %>% substr(., nchar(csv_names)-3, nchar(csv_names)) %>% 
+   as.numeric() %>% as.list()
+
 # year_i=1
 csv_names
 nfold=5
@@ -30,7 +36,7 @@ write_output_5csv <- function(year_i){
    rf_test <- do.call(rbind, rf_test)
    
    all_test <- cbind(gwr=gwr_test$gwr, gwr_rf=gwr_rf_test$gwr_rf, rf=rf_test$rf, slr_test)
-   write.csv(all_test, paste0("data/workingData/o_gwrid_NO2_5cv_", years[[year_i]], ".csv"), row.names = F)
+   write.csv(all_test, paste0("data/workingData/5cv_", csv_names[year_i], ".csv"), row.names = F)
    
 }
 lapply(seq_along(csv_names), write_output_5csv)
