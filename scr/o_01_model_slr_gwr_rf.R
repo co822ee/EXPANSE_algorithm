@@ -5,7 +5,7 @@
 # 0624 finished running for NO2 and PM2.5
 source("scr/fun_call_lib.R")
 # Whether to tune RF
-target_poll = 'NO2'
+target_poll = 'PM2.5'
 tuneRF_b = T
 # Multiple single years
 csv_names <- paste0('o3_', target_poll, "_", c(2000:2019))   #2008:2012
@@ -87,6 +87,12 @@ for(yr_i in seq_along(csv_names)){
          grd <- setup[[2]]
          DM <- setup[[3]]
          source("scr/fun_calibr_gwr.R")
+         # GWR_result_all_o3_PM2.5_2007_fold_1.csv is not available.
+         # error: inv(): matrix seems singular
+         # Adaptive bandwidth: 123 CV score: Inf 
+         # 
+         # error: inv(): matrix seems singular
+         # Adaptive bandwidth: 84 CV score: Inf 
          nngb <- tryCatch(calibr_gwr(sp_train, csv_name_fold), 
                           error=function(e) T)
             
@@ -213,7 +219,7 @@ for(yr_i in seq_along(csv_names)){
          if(typeof(nngb)!='logical'){
             out_pm <- rbind(output_em(slr_df, csv_name_fold, 'slr', years[[yr_i]], "obs"),
                             output_em(gwr_df, csv_name_fold, 'gwr', years[[yr_i]], "obs"),
-                            output_em(gwr_rf_result, csv_name_fold, "gwr_rf", years[[yr_i]], "obs"),
+                            # output_em(gwr_rf_result, csv_name_fold, "gwr_rf", years[[yr_i]], "obs"),
                             output_em(rf_result$rf_result, csv_name_fold, 'rf', years[[yr_i]], "obs")
             )
          }else{
