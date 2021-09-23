@@ -2,13 +2,12 @@ source("scr/fun_call_lib.R")
 # source("scr/o_00_00_read_data.R")
 source("../expanse_multiyear/src/00_fun_read_data_gee.R")
 # Multiple single years
-target_poll = 'PM2.5'
+target_poll = c('PM2.5', 'PM10', 'NO2', 'O3')
 csv_names <- gsub('SLR_result_all_', '', 
                   list.files('data/workingData/', 
-                             paste0('SLR_result_all_o3_', target_poll))) %>% 
+                             'SLR_result_all_o3_')) %>% 
    strsplit(., '_fold_') %>% lapply(., `[[`, 1) %>% unlist() %>% unique
-years <- csv_names %>% substr(., nchar(csv_names)-3, nchar(csv_names)) %>% 
-   as.numeric() %>% as.list()
+
 
 # year_i=1
 csv_names
