@@ -12,3 +12,12 @@ archive/
 *.html
 *.pdf
 *.tiff
+*.tif
+*.tif.aux.xml
+*.csv
+*.DS_Store
+*.txt
+*.grd
+*.gri
+*.Rmd
+*.html
