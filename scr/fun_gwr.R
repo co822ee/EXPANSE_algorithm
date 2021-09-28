@@ -1,7 +1,7 @@
-gwr <- function(sp_train, grd2, dm=DM, nngb, slr_csvname){
+gwr <- function(sp_train, grd2, dm=DM, nngb, slr_csvname, obs_varname='obs'){
    # Build GWR
    slr <- read.csv(paste0("data/workingData/SLR_summary_model_", slr_csvname, '.csv'))
-   eq <- as.formula(paste0('obs~',  paste(slr$variables[-1], collapse = "+")))
+   eq <- as.formula(paste0(obs_varname, '~',  paste(slr$variables[-1], collapse = "+")))
    
    
    gwr.res.t <- gwr.basic(eq,
