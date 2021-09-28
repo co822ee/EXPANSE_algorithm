@@ -1,3 +1,0 @@
-"RMSE","MAE","rsq","df_type","model","year","csv_name"
-8.83226035140495,6.38935783819853,0.605095408587375,"test","gwr",2010,"testGWR_10_exponential_2010_fold_3"
-8.43357267433835,5.81568062215954,0.668826993681202,"train","gwr",2010,"testGWR_10_exponential_2010_fold_3"
