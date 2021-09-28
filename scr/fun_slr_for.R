@@ -1,4 +1,7 @@
-slr <- function(POLL, pred, cv_n=1){
+slr <- function(POLL, pred, cv_n=1, R2thres=0.01){
+
+   ## POLL: vector that gives the values for y variable (response variable)
+   ## pred: data frame that gives the values for potential x variables (independent variables)
    nfirstvar <- 1  # given that the list of explanatory variables is at the end of the table: specify in which row the first explanatory variable is
    nlastvar <- dim(pred)[2] #here the number of the last row is calculated
    
@@ -155,7 +158,7 @@ slr <- function(POLL, pred, cv_n=1){
    
    for (i in 1:20){
       print(paste("model", i, "R2", models$R2bestmodel[[i]]))
-      if(((models$R2bestmodel[[i]]-temp))>= 0.01){   #R2 improvement > 1% (change it to absolute?)
+      if(((models$R2bestmodel[[i]]-temp))>= R2thres){   #R2 improvement > 1% (change it to absolute?)
          temp <- models$R2bestmodel[[i]]
          besti <- i
       } else {
@@ -163,7 +166,9 @@ slr <- function(POLL, pred, cv_n=1){
          break
       }
    }
-   
+   if(((models$R2bestmodel[[20]]-temp))>= R2thres){
+      n <- 20
+   }
    n
    
    ###  n = the last step - 1
