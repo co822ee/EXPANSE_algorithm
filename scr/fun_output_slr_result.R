@@ -1,4 +1,4 @@
-source("scr/fun_gen_pred_df.R")
+source("../EXPANSE_algorithm/scr/fun_gen_pred_df.R")
 output_slr_result <- function(model, test_df, train_df, output_filename, obs_varname,
                               outputselect = c("station_european_code", "slr", "obs", "res",
                                                "nfold", "df_type", "year", "index")){

@@ -17,13 +17,16 @@ plot_gwr_coef <- function(csv_i=1, gwr_model, csv_name, n_row, n_col, eu_bnd){
    # breaks <- list(seq(10,60,length.out = 6), seq(0,20,length.out = 6))
    gwr_plot <- vector(mode = "list", length = ncol(gwr_model$SDF))
    for(plot_i in seq_along(names(gwr_model$SDF))){ #seq_along(names(gwr_model$SDF))
-      gwr_plot[[plot_i]] <- tm_shape(raster(gwr_model$SDF[plot_i]))+
+      r_c <- gwr_model$SDF[plot_i] 
+      gridded(r_c) <- T
+      r_c <- raster(r_c)
+      gwr_plot[[plot_i]] <- tm_shape(r_c)+
          tm_raster(palette = viridis(5), style = "cont", title = '')+
          tm_shape(eu_bnd) +
          tm_borders(col='black')+
          tm_layout(legend.title.size = 1, legend.text.size = 0.8, 
                    legend.text.color = 'yellow', 
-                   title = names(raster(gwr_model$SDF[plot_i])),
+                   title = names(r_c),
                    title.color = 'black')
    }
    gwr_plot$nrow <- n_row
