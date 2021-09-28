@@ -162,7 +162,7 @@ for(i in seq_along(csv_names)){
    train_df <- train_sub
    test_df <- test_sub
    pred_c_rf <- c(pred_c, "x_trun", "y_trun")
-   x_varname = names(data_all %>% dplyr::select(matches(pred_c_rf)))
+   x_varname = names(data_all %>% dplyr::select(pred_c_rf))
    # LLO CV (small test for multiple years)
    # indices <- CreateSpacetimeFolds(data_all,spacevar = "station_european_code",
    #                                 k=3, seed=seed)

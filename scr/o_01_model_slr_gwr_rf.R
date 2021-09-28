@@ -20,18 +20,13 @@ library(foreach)
 for(yr_i in seq_along(csv_names)){
    csv_name <- csv_names[yr_i]
    print("********************************************")
+   
    print(csv_name)
    print(target_poll)
    
    df_sub <- read_data(target_poll,  years[[yr_i]])
-   if(length(years[[yr_i]])==1){
-      exc_names <- c('system.index', 'obs', 'sta_code', 'component_caption', '.geo', 'year', 
-                     'cntr_code', 'xcoord', 'ycoord', 'sta_type')
-   }else{
-      exc_names <- c('system.index', 'obs', 'sta_code', 'component_caption', '.geo',
-                     'cntr_code', 'xcoord', 'ycoord', 'sta_type')
-   }
-   pred_c <- names(df_sub)[!(names(df_sub)%in%exc_names)]
+   source('../EXPANSE_algorithm/scr/fun_select_predictor.R')
+   pred_c <- select_predictor(df_sub)
    
    if(nrow(df_sub)>200){
       source("../expanse_multiyear/src/00_fun_create_fold.R")
@@ -57,7 +52,7 @@ for(yr_i in seq_along(csv_names)){
          source("scr/fun_slr_for.R")
          # check the predictor variables
          print("SLR predictors:")
-         train_sub %>% dplyr::select(matches(c( pred_c))) %>% names()
+         train_sub %>% dplyr::select(pred_c) %>% names()
          slr_result <- slr(train_sub$obs, as.data.frame(train_sub[, c( c(pred_c))]),
                            cv_n = csv_name_fold, 
                            R2thres = ifelse(target_poll=='PM2.5', 0.0, 0.01))
@@ -159,7 +154,7 @@ for(yr_i in seq_along(csv_names)){
          train_df <- train_sub
          test_df <- test_sub
          pred_c_rf <- c(pred_c) #"x_trun", "y_trun"  ,  "cntr_code"
-         x_varname = names(data_all %>% dplyr::select(matches(pred_c_rf)))
+         x_varname = names(data_all %>% dplyr::select(pred_c_rf))
          print("RF predictors:")
          print(x_varname)
          ## LLO CV (small test for multiple years)
@@ -198,10 +193,10 @@ for(yr_i in seq_along(csv_names)){
          # Model Performance evaluation:
          slr_poll$eval_train %>% print()
          slr_poll$eval_test %>% print()
-         # error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr']) %>%
-         #    print()
-         # error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr']) %>%
-         #    print()
+         error_matrix(gwr_df[gwr_df$df_type=='train', 'obs'], gwr_df[gwr_df$df_type=='train', 'gwr']) %>%
+            print()
+         error_matrix(gwr_df[gwr_df$df_type=='test', 'obs'], gwr_df[gwr_df$df_type=='test', 'gwr']) %>%
+            print()
          rf_result$eval_train
          rf_result$eval_test
          # rf_result$rf_result %>% names
