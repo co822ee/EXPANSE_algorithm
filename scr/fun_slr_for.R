@@ -145,8 +145,6 @@ slr <- function(POLL, pred, cv_n=1, R2thres=0.01){
          }else{
             break
          }
-         
-         
       }
    }
    
@@ -166,9 +164,12 @@ slr <- function(POLL, pred, cv_n=1, R2thres=0.01){
          break
       }
    }
-   if(((models$R2bestmodel[[20]]-temp))>= R2thres){
-      n <- 20
+   if(length(models$R2bestmodel)==20){
+      if(((models$R2bestmodel[[20]]-temp))>= R2thres){
+         n <- 20
+      }
    }
+   
    n
    
    ###  n = the last step - 1
