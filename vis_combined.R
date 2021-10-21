@@ -23,6 +23,7 @@ read_perfm2 <- function(poll){
                       list.files('../expanse_multiyear/data/workingData/', 
                                  paste0('SLR_result_all_o3_', poll))) %>% 
       strsplit(., '_fold_') %>% lapply(., `[[`, 1) %>% unlist() %>% unique
+   # # nfold=4 PM2.5 from year 2000-2003 (00-19) there is NA
    all_test2 <- lapply(paste0("../expanse_multiyear/data/workingData/5cv_", csv_names2, ".csv"), 
                        read.csv)
    
@@ -30,8 +31,16 @@ read_perfm2 <- function(poll){
       df_all <- all_test2[[i]]
       df_all$poll <- poll
       df_all$period <- strsplit(csv_names2, '_')[[i]][3]
-      df_all
+      if(poll=='PM2.5'){
+         # df_all[!is.na(df_all$gtwr), ]
+         # We just leave out the gtwr 5-CV for 2000-2003 because the GTWR for fold4 for 2000-2003 could not be built
+         # Also the numbers of observations for 2000-2003 are 11,22,52,82...
+         df_all
+      }else{
+         df_all
+      }
    })
+   
    all_test2
 }
 # show_EM <- function(all_df_i, all_test){
@@ -55,6 +64,7 @@ show_EM <- function(all_df_i, all_test){
              slr=all_test[[all_df_i]][all_test[[all_df_i]]$year==target_yr,]$slr
              gwr=all_test[[all_df_i]][all_test[[all_df_i]]$year==target_yr,]$gwr
              gtwr=all_test[[all_df_i]][all_test[[all_df_i]]$year==target_yr,]$gtwr
+             
              rf=all_test[[all_df_i]][all_test[[all_df_i]]$year==target_yr,]$rf
              obs=all_test[[all_df_i]][all_test[[all_df_i]]$year==target_yr,]$obs
              df_all <- data.frame(slr=error_matrix(obs, slr),
@@ -252,6 +262,33 @@ ggplot(dat_rmse,
 # geom_hline(aes(yintercept=2.97))
 ggsave('graph/RMSE.tiff', width=8, height=10, units='in', dpi=200)
 
+# Multiple-year only
+dat_r2 <- em_df_all %>% filter(EM=='rsq', !period%in%(2000:2019),
+                               year%in%c(2000, 2005, 2010, 2015, 2019)) %>%  
+   gather("model", "values", -c("year", "EM", 'poll', 'period'))
+dat_r2 <- dat_r2[!is.na(dat_r2$values), ] %>% 
+   mutate(model2=paste0(model, period))
+
+ggplot(dat_r2, 
+       aes(x=reorder(model, model), y=values, fill=period))+
+   geom_bar(stat="identity", position = "dodge2")+
+   # facet_grid(EM~., scales ='free')+
+   # labs(title=years[[i]])+
+   labs(y="R squared", x='time')+
+   theme(axis.title = element_text(size = 18),
+         axis.text = element_text(size = 13),
+         axis.text.x = element_text(angle = 90),
+         legend.title = element_text(size = 16),
+         legend.text = element_text(size = 16),
+         strip.text.y = element_text(size = 15))+
+   facet_grid(poll~year)+
+   coord_flip()+
+   guides(fill = guide_legend(reverse = TRUE))
+# geom_hline(aes(yintercept=0.587))+  # Reverse the legend orders
+# geom_hline(aes(yintercept=0.664))
+ggsave('graph/R2_multiyrOnly.tiff', width=8, height=10, units='in', dpi=200)
+# Including  
+#-------- heatmap -----------
 slr_l <- lapply(target_poll, create_heatmap_slr)
 
 png('graph/heatmap_slr.png', 
