@@ -15,9 +15,12 @@ plot_gwr_coef <- function(csv_i=1, gwr_model, csv_name, n_row, n_col, eu_bnd){
    # print(paste0("nearest neighbours: ", nngb))
    # plot(stack(gwr_model$SDF), addfun = fun)
    # breaks <- list(seq(10,60,length.out = 6), seq(0,20,length.out = 6))
-   gwr_plot <- vector(mode = "list", length = ncol(gwr_model$SDF))
-   for(plot_i in seq_along(names(gwr_model$SDF))){ #seq_along(names(gwr_model$SDF))
-      r_c <- gwr_model$SDF[plot_i] 
+   coef_maps <- gwr_model$SDF[names(gwr_model$SDF)[!grepl('time_stamp', names(gwr_model$SDF))]]
+   gwr_plot <- vector(mode = "list", length = ncol(coef_maps))
+   
+   for(plot_i in seq_along(names(coef_maps))){ #seq_along(names(gwr_model$SDF))
+      # r_c <- gwr_model$SDF[plot_i] 
+      r_c <- coef_maps[plot_i]
       gridded(r_c) <- T
       r_c <- raster(r_c)
       gwr_plot[[plot_i]] <- tm_shape(r_c)+
