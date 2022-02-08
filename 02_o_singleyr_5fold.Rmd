@@ -8,77 +8,151 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = F, fig.width = 6, fig.height = 6, warning=F)
+knitr::opts_chunk$set(echo = F, fig.width = 8, fig.height = 5, warning=F)
 source("scr/fun_call_lib.R")
 library(kableExtra)
+library(gtools)
 ```
 ```{r read data}
 eu_bnd <- st_read("../expanse_shp/eu_expanse2.shp")
-
+met_str <- 'precip|temp|wind|pressure'
+years <- 2000:2019
+nfold=5
 ```
 
-After the year of 2006, the corine data was linearly interpolated:
+```{r useful functions}
+read_perfm <- function(poll){
+   csv_names <- gsub('SLR_result_all_', '', 
+                     list.files('data/workingData/', 
+                                paste0('SLR_result_all_o3_', poll))) %>% 
+      strsplit(., '_fold_') %>% lapply(., `[[`, 1) %>% unlist() %>% unique
+   years <- csv_names %>% substr(., nchar(csv_names)-3, nchar(csv_names)) %>% 
+      as.numeric() %>% as.list()
+   
+   all_test <- lapply(paste0("data/workingData/5cv_", csv_names, ".csv"), read.csv)
+   all_test
+}
+show_EM <- function(all_df_i){
+   gwr=all_test[[all_df_i]]$gwr
+   # gwr_rf=all_test[[all_df_i]]$gwr_rf
+   slr=all_test[[all_df_i]]$slr
+   rf=all_test[[all_df_i]]$rf
+   df_all <- data.frame(slr=error_matrix(all_test[[all_df_i]]$obs, slr),
+                        gwr=error_matrix(all_test[[all_df_i]]$obs, gwr),
+                        # gwr_rf=error_matrix(all_test[[all_df_i]]$obs, gwr_rf),
+                        rf=error_matrix(all_test[[all_df_i]]$obs, rf),
+                        yr=all_test[[all_df_i]]$year)[c(1,5,7),]
+   df_all$EM = row.names(df_all)
+   df_all
+}
+comp_rf_slr <- function(csv_i, poll){
+   files <- list.files("data/workingData/", paste0("SLR_summary_model_o3_", poll))[grepl("fold", list.files("data/workingData/", paste0("SLR_summary_model_o3_", poll)))]
+   slr_name <- files[csv_i]
+   csv_name <- gsub('.csv', '', substr(slr_name, 19, nchar(slr_name)))
+   yr <- strsplit(slr_name, "_")[[1]][6]
+   nfold <- (strsplit(slr_name, "_")[[1]][8] %>% strsplit(., ".csv"))[[1]] %>% as.numeric()
+   # rf_name <- paste0("RF_vi_o_", yr, "_fold_", nfold, ".csv")
+   slr_result <- read.csv(paste0("data/workingData/", slr_name), header=T)
+   slr_result$yr <- yr
+   slr_result$nfold <- nfold
+   slr_result$increR2[1]=0
+   slr_result$incredR2 <- c(0, diff(slr_result$increR2))
+   p1 <- ggplot(slr_result)+
+      geom_col(aes(x=reorder(variables, incredR2), y=incredR2), 
+               position = "dodge2", fill='khaki')+
+      coord_flip() +
+      theme_light()+
+      labs(x = 'variable', y = 'increased R2',
+           title = paste0(yr, "_fold_", nfold))+
+      # facet_grid(EM~., scales ='free')+
+      # labs(title=years[[i]])+
+      theme(axis.title = element_text(size = 11),
+            axis.text = element_text(size = 11),
+            legend.title = element_text(size = 11),
+            legend.text = element_text(size = 11),
+            strip.text.y = element_text(size = 11))
+   # rf_vi <- read.csv(paste0("data/workingData/", rf_name))
+   source("../EXPANSE_algorithm/scr/fun_plot_rf_vi.R")
+   p2 <- plot_rf_vi(csv_name, var_no = 20)
+   grid.arrange(p1, p2, nrow=1, ncol=2)
+}
+
+extract_slr_var <- function(csv_i, poll){
+   files <- list.files("data/workingData/", paste0("SLR_summary_model_o3_", poll))[grepl("fold", list.files("data/workingData/", paste0("SLR_summary_model_o3_", poll)))]
+   slr_name <- files[csv_i]
+   
+   yr <- strsplit(slr_name, "_")[[1]][6]
+   nfold <- (strsplit(slr_name, "_")[[1]][8] %>% strsplit(., ".csv"))[[1]] %>% as.numeric()
+   # rf_name <- paste0("RF_vi_o_", yr, "_fold_", nfold, ".csv")
+   slr_result <- read.csv(paste0("data/workingData/", slr_name), header=T)
+   slr_result$yr <- yr
+   slr_result$nfold <- nfold
+   slr_result$increR2[1]=0
+   slr_result$incredR2 <- c(0, diff(slr_result$increR2))
+   slr_var <- slr_result$variables[-1]
+   if(any(grepl(met_str, slr_var))){
+      slr_var[grepl(met_str, slr_var)] <- gsub('(\\_\\d+).*', '', slr_var[grepl(met_str, slr_var)])  
+   }
+   data.frame(var_name=slr_var, yr=yr, nfold=nfold)
+}
+extract_rf_var <- function(csv_i, poll){
+   files <- list.files("data/workingData/", paste0("SLR_summary_model_o3_", poll))[grepl("fold", list.files("data/workingData/", paste0("SLR_summary_model_o3_", poll)))]
+   slr_name <- files[csv_i]
+   csv_name <- gsub('.csv', '', substr(slr_name, 19, nchar(slr_name)))
+   yr <- strsplit(slr_name, "_")[[1]][6]
+   nfold <- (strsplit(slr_name, "_")[[1]][8] %>% strsplit(., ".csv"))[[1]] %>% as.numeric()
+   
+   var_importance <- read.csv(paste0('data/workingData/RF_vi_', csv_name, '.csv'), 
+                              header = T)
+   rf_var10 <- (var_importance %>% top_n(10, vi))$var_name
+   
+   if(any(grepl(met_str, rf_var10))){
+      rf_var10[grepl(met_str, rf_var10)] <- gsub('(\\_\\d+).*', '', rf_var10[grepl(met_str, rf_var10)])  
+   }
+   data.frame(var_name=rf_var10, yr=yr, nfold=nfold)
+}
+create_heatmap <- function(poll){
+   files <- list.files("data/workingData/", paste0("SLR_summary_model_o3_", poll))[grepl("fold", list.files("data/workingData/", paste0("SLR_summary_model_o3_", poll)))]
+   slr_vars <- lapply(seq_along(files), extract_slr_var, poll=poll) %>% do.call(rbind, .)
+   rf_vars <- lapply(seq_along(files), extract_rf_var, poll=poll) %>% do.call(rbind, .)
+   slr_tbl <- with(slr_vars, table(var_name, yr))
+   rf_tbl <- with(rf_vars, table(var_name, yr))
+   slr_tbl <- slr_tbl[mixedorder(row.names(slr_tbl), decreasing=T),]
+   rf_tbl <- rf_tbl[mixedorder(row.names(rf_tbl), decreasing=T),]
+   print(heatmap(rf_tbl, Colv = NA, Rowv = NA, scale="column", main=paste0('RF: ', poll)))
+   print(heatmap(slr_tbl, Colv = NA, Rowv = NA, scale="column", main=paste0('SLR: ', poll)))
+}
+```
+
+# PM2.5
 
 ```{r read prediction results (5-fold test data)}
 # Here we read the predictions for test data from all five-folds
-csv_names <- paste0('o_gwrid_NO2_5cv_', c(2006:2012))
-years <- as.list(seq(2006, 2012))
-nfold=5
-all_test <- lapply(paste0("data/workingData/", csv_names, ".csv"), read.csv)
-# lapply(all_test, nrow)
+target_poll = 'PM2.5'
+all_test <- read_perfm(target_poll)
+
 ```
 
 
 The predictors used in SLR, GWR, RF were the same.
 
 ```{r predictors in LUR}
-source("../expanse_multiyear/src/00_fun_read_data.R")
-yr_i=2
-csv_name <- csv_names[yr_i]
-no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[yr_i]])
+source("../expanse_multiyear/src/00_fun_read_data_gee.R")
+no2_e_09_11 <- read_data(target_poll, 2010)
 source("../expanse_multiyear/src/00_fun_create_fold.R")
 data_all1 <- create_fold(no2_e_09_11, seed, strt_group=c("sta_type", "zoneID"), 
                                nfold = nfold)
 #f# SLR: select predictors
 # source("scr/o_00_01_call_predictor.R")
-exc_names <- c("sta_code", "component_code", "component_caption", "obs", 
-                     "year", "id", "country_name", "sta_type", "area_type", "areaid", 
-                     "index", "nfold", "xcoord", "ycoord", 'zoneID', 'cntr_code')
+exc_names <- c("sta_code", "component_code", "component_caption", "obs",
+               'system.index', '.geo', 
+               "year", "id", "country_name", "sta_type", "area_type", "areaid", 
+               "index", "nfold", "xcoord", "ycoord", 'cntr_code')  #zoneID
 pred_c <- names(data_all1)[!names(data_all1)%in%exc_names]
-neg_pred <- pred_c[grepl("nat|ugr", pred_c)]
-pred_c
-
+# pred_c
 ```
 
-# Location
 
-The datasets were randomly divided into training and test data, using 'type_of_st' and 'climate_zone' as stratification.
-
-
-```{r fig.height=6, fig.width=10}
-# tmap_mode('plot')
-tmap_mode('view')
-maps_l <- lapply(seq_along(years), function(yr_i){
-   no2_e_09_11 <- subset_df_yrs(no2_e_all, years[[yr_i]])
-   # data_all <- no2_e_09_11
-   print(paste0("year: ", unique(no2_e_09_11$year)))
-   source("../expanse_multiyear/src/00_fun_create_fold.R")
-data_all1 <- create_fold(no2_e_09_11, seed, strt_group=c("sta_type", "zoneID"), 
-                               nfold = nfold)
-   EU_sp <- st_as_sf(data_all1, coords = c("xcoord", "ycoord"))
-   st_crs(EU_sp) <- st_crs(3035)
-   
-   map_1 <- tm_shape(EU_sp) +
-      tm_dots(size = 0.05, col="nfold",   # col = "NO2",          # popup.vars for showing values
-              title = paste0('nfold in year ', unique(no2_e_09_11$year)), palette=viridis(5), style = "cat"  #,  palette=viridis(5), style=="fixed"
-      )+
-      tm_shape(eu_bnd)+
-      tm_borders()
-   map_1
-})
-# do.call(tmap_arrange, maps_l)
-maps_l
-```
 
 # Five-fold cross-validation
 
@@ -86,19 +160,87 @@ The model performance of GWR kinda vary greatly among folds.
 
 ```{r}
 
-show_EM <- function(all_df_i){
-   gwr=all_test[[all_df_i]]$gwr
-   gwr_rf=all_test[[all_df_i]]$gwr_rf
-   slr=all_test[[all_df_i]]$slr
-   rf=all_test[[all_df_i]]$rf
-   df_all <- data.frame(slr=error_matrix(all_test[[all_df_i]]$obs, slr),
-           gwr=error_matrix(all_test[[all_df_i]]$obs, gwr),
-           gwr_rf=error_matrix(all_test[[all_df_i]]$obs, gwr_rf),
-           rf=error_matrix(all_test[[all_df_i]]$obs, rf),
-           yr=years[[all_df_i]])[c(1,5,7),]
-   df_all$EM = row.names(df_all)
-   df_all
-}
+em_df <- lapply(seq_along(all_test), show_EM)
+em_df <- do.call(rbind, em_df)
+ggplot(em_df %>% filter(EM=='rsq') %>%  gather("model", "values", -c("yr", "EM")), aes(x=yr, y=values, fill=model))+
+      geom_bar(stat="identity", position = "dodge2")+
+      # facet_grid(EM~., scales ='free')+
+      # labs(title=years[[i]])+
+   labs(y="R squared")+
+      theme(axis.title = element_text(size = 18),
+          axis.text = element_text(size = 16),
+          legend.title = element_text(size = 16),
+          legend.text = element_text(size = 16),
+          strip.text.y = element_text(size = 15))+
+   geom_hline(aes(yintercept=0.587))+
+   geom_hline(aes(yintercept=0.664))
+
+ggplot(em_df %>% filter(EM=='RMSE') %>%  gather("model", "values", -c("yr", "EM")), 
+       aes(x=yr, y=values, fill=model))+
+      geom_bar(stat="identity", position = "dodge2")+
+      # facet_grid(EM~., scales ='free')+
+      # labs(title=years[[i]])+
+   labs(y="RMSE")+
+      theme(axis.title = element_text(size = 18),
+          axis.text = element_text(size = 16),
+          legend.title = element_text(size = 16),
+          legend.text = element_text(size = 16),
+          strip.text.y = element_text(size = 15))+
+   geom_hline(aes(yintercept=3.3))+
+   geom_hline(aes(yintercept=2.97))
+```
+
+
+```{r selected predictors in slr, fig.width = 10, fig.height = 3.6}
+
+# comp_rf_slr(4)
+# lapply(seq_along(files), comp_rf_slr)
+
+
+```
+
+```{r, fig.width = 8, fig.height = 6}
+create_heatmap(target_poll)
+```
+
+
+# PM10
+
+
+```{r read1 prediction results (5-fold test data) pm10}
+# Here we read the predictions for test data from all five-folds
+target_poll = 'PM10'
+all_test <- read_perfm(target_poll)
+```
+
+
+The predictors used in SLR, GWR, RF were the same.
+
+```{r  }
+source("../expanse_multiyear/src/00_fun_read_data_gee.R")
+no2_e_09_11 <- read_data(target_poll, 2010)
+source("../expanse_multiyear/src/00_fun_create_fold.R")
+data_all1 <- create_fold(no2_e_09_11, seed, strt_group=c("sta_type", "zoneID"), 
+                               nfold = nfold)
+#f# SLR: select predictors
+# source("scr/o_00_01_call_predictor.R")
+exc_names <- c("sta_code", "component_code", "component_caption", "obs", 
+               'system.index', '.geo',
+               "year", "id", "country_name", "sta_type", "area_type", "areaid", 
+               "index", "nfold", "xcoord", "ycoord", 'cntr_code')  #zoneID
+pred_c <- names(data_all1)[!names(data_all1)%in%exc_names]
+# pred_c
+
+```
+
+
+
+
+### Five-fold cross-validation
+
+The model performance of GWR kinda vary greatly among folds.
+
+```{r}
 em_df <- lapply(seq_along(all_test), show_EM)
 em_df <- do.call(rbind, em_df)
 ggplot(em_df %>% filter(EM=='rsq') %>%  gather("model", "values", -c("yr", "EM")), aes(x=yr, y=values, fill=model))+
@@ -127,118 +269,259 @@ ggplot(em_df %>% filter(EM=='RMSE') %>%  gather("model", "values", -c("yr", "EM"
 
 ```
 
-*It is strange that MACC was one of the influential predictors in RF but not included in SLR.*
-There are two differences in the predictors of ELAPSE and the current predictors:
 
-1. Population data was obtained from a different data sources: JRC global population counts (2000)
-2. Altitude was not included
-3. OSM was used and there were 3 classes of road types instead of MAJOR and ALL roads
+```{r  , fig.width = 10, fig.height = 3.6}
+# files <- list.files("data/workingData/", paste0("SLR_summary_model_o3_", target_poll))[grepl("fold", list.files("data/workingData/", paste0("SLR_summary_model_o3_", target_poll)))]
+
+# # comp_rf_slr(4)
+# lapply(seq_along(files), comp_rf_slr)
+
+```
+
+### Heatmap of top-10 important variables in RF
+
+```{r, fig.width = 8, fig.height = 6}
+create_heatmap(target_poll)
+```
+
+# NO2
 
 
-* The selected predictors are mostly population, impervious density and road data.
-* MACC is not selected in SLR but is influential in RF.
+```{r read1 prediction results (5-fold test data) no2}
+# Here we read the predictions for test data from all five-folds
+target_poll = 'NO2'
+all_test <- read_perfm(target_poll)
+```
 
 
-```{r selected predictors in slr, fig.width = 10, fig.height = 3.6}
-comp_rf_slr <- function(csv_i){
-   slr_name <- list.files("data/workingData/", "SLR_summary_model_o_gwrid_")[csv_i]
-   yr <- strsplit(slr_name, "_")[[1]][6] %>% as.numeric()
-   nfold <- (strsplit(slr_name, "_")[[1]][8] %>% strsplit(., ".csv"))[[1]] %>% as.numeric()
-   # rf_name <- paste0("RF_vi_o_", yr, "_fold_", nfold, ".csv")
-   slr_result <- read.csv(paste0("data/workingData/", slr_name), header=T)
-   slr_result$yr <- yr
-   slr_result$nfold <- nfold
-   slr_result$increR2[1]=0
-   slr_result$incredR2 <- c(0, diff(slr_result$increR2))
-   p1 <- ggplot(slr_result)+
-      geom_col(aes(x=reorder(variables, incredR2), y=incredR2), 
-               position = "dodge2", fill='khaki')+
-      coord_flip() +
-      theme_light()+
-      labs(x = 'variable', y = 'increased R2',
-           title = paste0(yr, "_fold_", nfold))+
+The predictors used in SLR, GWR, RF were the same.
+
+```{r  }
+source("../expanse_multiyear/src/00_fun_read_data_gee.R")
+no2_e_09_11 <- read_data(target_poll, 2010)
+source("../expanse_multiyear/src/00_fun_create_fold.R")
+data_all1 <- create_fold(no2_e_09_11, seed, strt_group=c("sta_type", "zoneID"), 
+                               nfold = nfold)
+#f# SLR: select predictors
+# source("scr/o_00_01_call_predictor.R")
+exc_names <- c("sta_code", "component_code", "component_caption", "obs", 
+               'system.index', '.geo',
+               "year", "id", "country_name", "sta_type", "area_type", "areaid", 
+               "index", "nfold", "xcoord", "ycoord", 'cntr_code')  #zoneID
+pred_c <- names(data_all1)[!names(data_all1)%in%exc_names]
+# pred_c
+
+```
+
+
+
+
+# Five-fold cross-validation
+
+The model performance of GWR kinda vary greatly among folds.
+
+```{r}
+em_df <- lapply(seq_along(all_test), show_EM)
+em_df <- do.call(rbind, em_df)
+ggplot(em_df %>% filter(EM=='rsq') %>%  gather("model", "values", -c("yr", "EM")), aes(x=yr, y=values, fill=model))+
+      geom_bar(stat="identity", position = "dodge2")+
       # facet_grid(EM~., scales ='free')+
       # labs(title=years[[i]])+
-      theme(axis.title = element_text(size = 13),
-            axis.text = element_text(size = 13),
-            legend.title = element_text(size = 13),
-            legend.text = element_text(size = 13),
-            strip.text.y = element_text(size = 12))
-   # rf_vi <- read.csv(paste0("data/workingData/", rf_name))
-   source("scr/fun_plot_rf_vi.R")
-   p2 <- plot_rf_vi(paste0("o_gwrid_", yr, "_fold_", nfold), var_no = 10)
-   
-   var_importance <- read.csv(paste0('data/workingData/GWR_rf_vi_o_gwrid_', yr, '_fold_', nfold, '.csv'), 
-                              header = T)
-   p3 <- ggplot(var_importance %>% top_n(10, vi))+
-      geom_col(aes(reorder(var_name, vi), vi),
-               position = 'dodge', fill='khaki')+
-      coord_flip() +
-      theme_light()+
-      labs(x = 'variable', y = 'importance value (impurity)',
-           title = paste0("GWR_RF_", yr, "_fold_", nfold))+
-      theme(axis.title = element_text(size = 11),
-            axis.text = element_text(size = 11),
-            legend.title = element_text(size = 11),
-            legend.text = element_text(size = 11),
-            strip.text.y = element_text(size = 11))
-   grid.arrange(p1, p2, p3, nrow=1)  
-}
+   labs(y="R squared")+
+      theme(axis.title = element_text(size = 18),
+          axis.text = element_text(size = 16),
+          legend.title = element_text(size = 16),
+          legend.text = element_text(size = 16),
+          strip.text.y = element_text(size = 15))+
+   geom_hline(aes(yintercept=0.575))
 
-# comp_rf_slr(4)
-lapply(seq_along(list.files("data/workingData/", "SLR_summary_model_o_gwrid_")), comp_rf_slr)
+ggplot(em_df %>% filter(EM=='RMSE') %>%  gather("model", "values", -c("yr", "EM")), 
+       aes(x=yr, y=values, fill=model))+
+      geom_bar(stat="identity", position = "dodge2")+
+      # facet_grid(EM~., scales ='free')+
+      # labs(title=years[[i]])+
+   labs(y="RMSE")+
+      theme(axis.title = element_text(size = 18),
+          axis.text = element_text(size = 16),
+          legend.title = element_text(size = 16),
+          legend.text = element_text(size = 16),
+          strip.text.y = element_text(size = 15))+
+   geom_hline(aes(yintercept=09.51))
+
+
 ```
 
-# Performance matrix
 
-* Supervised Linear regression (SLR)
-* Geographically weighted regression (GWR)
-* Random forests (RF)
+```{r  , fig.width = 10, fig.height = 3.6}
+# files <- list.files("data/workingData/", paste0("SLR_summary_model_o3_", target_poll))[grepl("fold", list.files("data/workingData/", paste0("SLR_summary_model_o3_", target_poll)))]
 
-Training data was used for training the models using these three algorithms. Then the test data was used for evaluating model performance.
+# # comp_rf_slr(4)
+# lapply(seq_along(files), comp_rf_slr)
 
-Averaged error matrix from all folds:
+```
 
-## Test
+### Heatmap of top-10 important variables in RF
+
+```{r, fig.width = 8, fig.height = 6}
+create_heatmap(target_poll)
+```
+
+
+
+
+```{r, echo=F}
+# ## Performance matrix
+# 
+# * Supervised Linear regression (SLR)
+# * Geographically weighted regression (GWR)
+# * Random forests (RF)
+# 
+# Training data was used for training the models using these three algorithms. Then the test data was used for evaluating model performance.
+# 
+# Averaged error matrix from all folds:
+# 
+# ### Test
+# perfm <- lapply(paste0("data/workingData/", list.files("data/workingData/", paste0("perf_m_o3_", target_poll, "_"))), read.csv)
+# perfm <- do.call(rbind, perfm)
+# perfmm <- perfm %>% filter(df_type=="test") %>% mutate(n_fold=as.factor(n_fold))
+# ggplot(perfmm, aes(x=year, y=rsq, fill=n_fold, group=n_fold))+
+#     geom_bar(stat="identity", position = "dodge2")+
+#       facet_grid(model~., scales ='free')+
+#       # labs(title=years[[i]])+
+#       theme(axis.title = element_text(size = 12),
+#           axis.text = element_text(size = 11),
+#           legend.title = element_text(size = 11),
+#           legend.text = element_text(size = 11),
+#           strip.text.y = element_text(size = 11))
+```
+
+
+
+
+```{r, echo=F}
+
+# ## Train
+# perfm <- lapply(paste0("data/workingData/", list.files("data/workingData/", paste0("perf_m_o3_", target_poll, "_"))), read.csv)
+# perfm <- do.call(rbind, perfm)
+# perfmm <- perfm %>% filter(df_type=="train") %>% mutate(n_fold=as.factor(n_fold))
+# ggplot(perfmm, aes(x=year, y=rsq, fill=n_fold, group=n_fold))+
+#     geom_bar(stat="identity", position = "dodge2")+
+#       facet_grid(model~., scales ='free')+
+#       # labs(title=years[[i]])+
+#       theme(axis.title = element_text(size = 12),
+#           axis.text = element_text(size = 11),
+#           legend.title = element_text(size = 11),
+#           legend.text = element_text(size = 11),
+#           strip.text.y = element_text(size = 11))
+```
+
+
+```{r fig.height=6, fig.width=10}
+
+# # Location
+# 
+# The datasets were randomly divided into training and test data, using 'type_of_st' and 'climate_zone' as stratification.
+
+# tmap_mode('plot')
+# # tmap_mode('view')
+# maps_l <- lapply(seq_along(years), function(yr_i){
+#    no2_e_09_11 <- read_data(target_poll, years[[yr_i]])
+#    # data_all <- no2_e_09_11
+#    print(paste0("year: ", unique(no2_e_09_11$year)))
+#    source("../expanse_multiyear/src/00_fun_create_fold.R")
+# data_all1 <- create_fold(no2_e_09_11, seed, strt_group=c("sta_type", "zoneID"), 
+#                                nfold = nfold)
+#    EU_sp <- st_as_sf(data_all1, coords = c("xcoord", "ycoord"))
+#    st_crs(EU_sp) <- st_crs(3035)
+#    
+#    map_1 <- tm_shape(EU_sp) +
+#       tm_dots(size = 0.05, col="nfold",   # col = "NO2",          # popup.vars for showing values
+#               title = paste0('nfold in year ', unique(no2_e_09_11$year)), palette=viridis(5), style = "cat"  #,  palette=viridis(5), style=="fixed"
+#       )+
+#       tm_shape(eu_bnd)+
+#       tm_borders()
+#    map_1
+# })
+# # do.call(tmap_arrange, maps_l)
+# maps_l
+```
+
+# O3
+
+
+```{r read1 prediction results (5-fold test data) o3}
+# Here we read the predictions for test data from all five-folds
+target_poll = 'O3'
+all_test <- read_perfm(target_poll)
+```
+
+
+The predictors used in SLR, GWR, RF were the same.
+
+```{r  }
+source("../expanse_multiyear/src/00_fun_read_data_gee.R")
+no2_e_09_11 <- read_data(target_poll, 2010)
+source("../expanse_multiyear/src/00_fun_create_fold.R")
+data_all1 <- create_fold(no2_e_09_11, seed, strt_group=c("sta_type", "zoneID"), 
+                               nfold = nfold)
+#f# SLR: select predictors
+# source("scr/o_00_01_call_predictor.R")
+exc_names <- c("sta_code", "component_code", "component_caption", "obs", 
+               'system.index', '.geo',
+               "year", "id", "country_name", "sta_type", "area_type", "areaid", 
+               "index", "nfold", "xcoord", "ycoord", 'cntr_code')  #zoneID
+pred_c <- names(data_all1)[!names(data_all1)%in%exc_names]
+# pred_c
+
+```
+
+
+
+
+### Five-fold cross-validation
+
+The model performance of GWR kinda vary greatly among folds.
 
 ```{r}
-# perfm <- lapply(seq_along(years), function(i){
-#    perfm <- lapply(paste0("data/workingData/", list.files("data/workingData/", paste0("perf_m_run2_", years[[i]]))), read.csv)
-#    perfm <- do.call(rbind, perfm)
-#    perfm %>% filter(df_type=="test") %>% group_by(df_type, year, model) %>% summarise(RMSE=mean(RMSE),
-#                                                                                       # RRMSE=mean(RRMSE),
-#                                                                                       # IQR=mean(IQR),
-#                                                                                       # rIQR=mean(rIQR),
-#                                                                                       # MAE=mean(MAE),
-#                                                                                       # rMAE=mean(rMAE),
-#                                                                                       # rsq_sd=sd(rsq),
-#                                                                                       rsq=mean(rsq)) %>% 
-#       kbl(full_width=F)#,explained_var=mean(explained_var)
-# })
-# do.call(rbind, perfm)
+em_df <- lapply(seq_along(all_test), show_EM)
+em_df <- do.call(rbind, em_df)
+ggplot(em_df %>% filter(EM=='rsq') %>%  gather("model", "values", -c("yr", "EM")), aes(x=yr, y=values, fill=model))+
+      geom_bar(stat="identity", position = "dodge2")+
+      # facet_grid(EM~., scales ='free')+
+      # labs(title=years[[i]])+
+   labs(y="R squared")+
+      theme(axis.title = element_text(size = 18),
+          axis.text = element_text(size = 16),
+          legend.title = element_text(size = 16),
+          legend.text = element_text(size = 16),
+          strip.text.y = element_text(size = 15))
+
+ggplot(em_df %>% filter(EM=='RMSE') %>%  gather("model", "values", -c("yr", "EM")), 
+       aes(x=yr, y=values, fill=model))+
+      geom_bar(stat="identity", position = "dodge2")+
+      # facet_grid(EM~., scales ='free')+
+      # labs(title=years[[i]])+
+   labs(y="RMSE")+
+      theme(axis.title = element_text(size = 18),
+          axis.text = element_text(size = 16),
+          legend.title = element_text(size = 16),
+          legend.text = element_text(size = 16),
+          strip.text.y = element_text(size = 15))
+
+
 ```
 
 
+```{r  , fig.width = 10, fig.height = 3.6}
+# files <- list.files("data/workingData/", paste0("SLR_summary_model_o3_", target_poll))[grepl("fold", list.files("data/workingData/", paste0("SLR_summary_model_o3_", target_poll)))]
 
+# # comp_rf_slr(4)
+# lapply(seq_along(files), comp_rf_slr)
 
-## Train
-
-```{r}
-# perfm <- lapply(seq_along(years), function(i){
-#    perfm <- lapply(paste0("data/workingData/", list.files("data/workingData/", paste0("perf_m_o_", years[[i]]))), read.csv)
-#    perfm <- do.call(rbind, perfm)
-#    perfm %>% filter(df_type=="train") %>% group_by(df_type, year, model) %>% summarise(RMSE=mean(RMSE),
-#                                                                                       # RRMSE=mean(RRMSE),
-#                                                                                       # IQR=mean(IQR),
-#                                                                                       # rIQR=mean(rIQR),
-#                                                                                       # MAE=mean(MAE),
-#                                                                                       # rMAE=mean(rMAE),
-#                                                                                       # rsq_sd=sd(rsq),
-#                                                                                       rsq=mean(rsq)) %>% 
-#       kbl(full_width=F)#,explained_var=mean(explained_var)
-# })
-# do.call(rbind, perfm)
 ```
 
+### Heatmap of top-10 important variables in RF
 
-
+```{r, fig.width = 8, fig.height = 6}
+create_heatmap(target_poll)
+```

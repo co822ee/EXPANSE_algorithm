@@ -31,7 +31,7 @@ The predictors used in SLR, GWR, RF were the same.
 source("scr/fun_call_predictor.R")
 source("scr/fun_read_data.R")
 pred_c_rf <- c(pred_c) #"x_trun", "y_trun"
-x_varname = names(subset_df_yrs(no2_e_all, years[[1]]) %>% dplyr::select(matches(pred_c_rf)))
+x_varname = names(subset_df_yrs(no2_e_all, years[[1]]) %>% dplyr::select(pred_c_rf))
 print("Predictors used:")
 print(x_varname)
 
