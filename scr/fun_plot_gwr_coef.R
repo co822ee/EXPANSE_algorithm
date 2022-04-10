@@ -1,75 +1,69 @@
-plot_gwr_coef <- function(csv_i=1, gwr_model, csv_name, n_row, n_col, eu_bnd){
-   # nngbs <- (lapply(paste0("data/workingData/GWR_nngb_", names, ".txt"), read.table) %>% Reduce(rbind,.))[,1]
-   # source("scr/fun_setupt_gwr.R")
-   # setup <- setup_gwr(train_sub, eu_bnd, 
-   #                    cellsize = 200000, local_crs = CRS("+init=EPSG:3035"))
-   # sp_train <- setup[[1]]
-   # grd <- setup[[2]]
-   # DM <- setup[[3]]
-   # gwr_model <- gwr(sp_train, grd, DM, nngb, names[csv_i])
+plot_gwr_coef <- function(csv_i=1, gwr_model, csv_name, n_row=3, n_col=3, eu_bnd, eu_bnd2=eu_bnd, 
+                          dpi=100, negPred=negPred, mask_b=T){
+   
+   
    fun <- function() {
       plot(eu_bnd[1], add = TRUE,col='transparent',border='grey', alpha=0.05)
    }
-   # print(csv_names[csv_i])
-   # print(read.csv(paste0("data/workingData/SLR_summary_model_", names[csv_i], '.csv'))[,c(1:2,7)])
-   # print(paste0("nearest neighbours: ", nngb))
-   # plot(stack(gwr_model$SDF), addfun = fun)
-   # breaks <- list(seq(10,60,length.out = 6), seq(0,20,length.out = 6))
+
    coef_maps <- gwr_model$SDF[names(gwr_model$SDF)[!grepl('time_stamp', names(gwr_model$SDF))]]
+   # convert the coefficient maps of the variables that have a negative direction of effects
    gwr_plot <- vector(mode = "list", length = ncol(coef_maps))
    
-   for(plot_i in seq_along(names(coef_maps))){ #seq_along(names(gwr_model$SDF))
-      # r_c <- gwr_model$SDF[plot_i] 
+   cor_all_sf <- st_as_sf(data.frame(txt='', 
+                                     x=c(st_bbox(eu_bnd)[1], st_bbox(eu_bnd)[3]+1000000), 
+                                     y=c(st_bbox(eu_bnd)[2], st_bbox(eu_bnd)[4])), coords=c('x','y'),
+                          crs=crs(coef_maps))
+   
+   for(plot_i in seq_along(names(coef_maps))){
       r_c <- coef_maps[plot_i]
       gridded(r_c) <- T
       r_c <- raster(r_c)
-      gwr_plot[[plot_i]] <- tm_shape(r_c)+
-         tm_raster(palette = viridis(5), style = "cont", title = '')+
-         tm_shape(eu_bnd) +
-         tm_borders(col='black')+
-         tm_layout(legend.title.size = 1, legend.text.size = 0.8, 
-                   legend.text.color = 'yellow', 
-                   title = names(r_c),
-                   title.color = 'black')
+      if(names(r_c)%in%names(negPred)) r_c=r_c*(-1)
+      if(mask_b){
+         r_c2 <- crop(r_c, extent(eu_bnd2))
+         r_c3 <- mask(r_c2, eu_bnd2)
+         
+         gwr_plot[[plot_i]] <- tm_shape(cor_all_sf)+
+            tm_text('txt', just='top', size=1.2)+
+            tm_shape(r_c3)+
+            tm_raster(palette = viridis(5), style = "cont", title = names(r_c3))+
+            tm_shape(eu_bnd) +
+            tm_borders(col='black')+  # html dimGray
+            tm_layout(title.size = 1, legend.text.size = 0.9, 
+                      legend.text.color = 'black', 
+                      # title.position = c('right','top'),
+                      legend.position = c('right','top'),
+                      title.color = 'black')
+      }else{
+         
+         gwr_plot[[plot_i]] <- tm_shape(cor_all_sf)+
+            tm_text('txt', just='top', size=1.2)+
+            tm_shape(r_c)+
+            tm_raster(palette = viridis(5), style = "cont", title = names(r_c))+
+            tm_shape(eu_bnd) +
+            tm_borders(col='black')+  # html dimGray
+            tm_layout(title.size = 1, legend.text.size = 0.9, 
+                      legend.text.color = 'black', 
+                      # title.position = c('right','top'),
+                      legend.position = c('right','top'),
+                      title.color = 'black')
+      }
+      
    }
-   gwr_plot$nrow <- n_row
    gwr_plot$ncol <- n_col
+   gwr_plot$nrow <- ceiling(length(names(coef_maps))/n_col) ##n_row
 
    mergeMap <- do.call(tmap_arrange, gwr_plot)
    if(!dir.exists("graph/gwr_coef/")) dir.create("graph/gwr_coef/")
-   tmap_save(mergeMap, filename = paste0('graph/gwr_coef/', csv_name, ".tiff"), 
-             dpi=100, height=10, width=10, units='in')
+   if(ceiling(length(names(coef_maps))/n_col)==5){
+      tmap_save(mergeMap, filename = paste0('graph/gwr_coef/', csv_name, ".tiff"), 
+                dpi=dpi, height=13.5, width=11.5, units='in')
+   }else{
+      tmap_save(mergeMap, filename = paste0('graph/gwr_coef/', csv_name, ".tiff"), 
+                dpi=dpi, height=10, width=10.5, units='in')
+   }
+   
    print(paste0('output graph/gwr_coef/', csv_name, ".tiff"))
 }
 
-# tm_shape(stack(gwr_model$SDF[1:2]))+
-#    tm_raster(palette = viridis(5), style = "cont", title = '')+
-#    tm_shape(eu_bnd) +
-#    tm_borders(col='black')+
-#    tm_layout(legend.title.size = 1.2, legend.text.size = 1, legend.text.color = 'black', 
-#              title = names(stack(gwr_model$SDF[1:2])),
-#              title.color = 'white')
-
-# Vis Method 2
-# levelplot(raster(gwr_model$SDF[1]), margin=FALSE)
-#----------------------------
-# image(gwr.res.t$SDF,'no2_10MACC', main="no2_10MACC")
-# # image(gwr.res.t$SDF,'Intercept')
-# plot(eu_bnd[1],add=TRUE,pch=16,col='transparent',border='grey', alpha=0.05)
-# contour(gwr.res.t$SDF,'no2_10MACC',lwd=2, labcex=1.1,add=TRUE)
-# par(mfrow=c(3,4))
-# plot_gwr_coef <- function(i){
-#    image(gwr.res.t$SDF,names(gwr.res.t$SDF)[csv_i], main=names(gwr.res.t$SDF)[csv_i])
-#    # image(gwr.res.t$SDF,'Intercept')
-#    plot(eu_bnd[1],add=TRUE,pch=16,col='transparent',border='grey', alpha=0.05)
-#    contour(gwr.res.t$SDF,names(gwr.res.t$SDF)[csv_i],lwd=1, labcex=1.1,add=TRUE)
-# }
-# lapply(seq_along(names(gwr.res.t$SDF)), plot_gwr_coef)
-# # method 2
-# coef_stack <- stack(gwr.res.t$SDF)
-# plot(coef_stack)
-# 
-# tm_shape(gwr.res.t$SDF['Intercept'])+
-#    tm_raster(n=10,palette = "plasma", auto.palette.mapping = FALSE,
-#              title="OMI")+
-#    tm_shape(eu_bnd)+tm_borders(col = "white")
