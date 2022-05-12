@@ -26,11 +26,3 @@ Geographically weighted regression:
 * 00_gwr_01_stepwise.R tests the stepwise procedure in GWR. 
 * 00_gwr_02_stepwise_mixedGWR tests the stepwise procedure with mixed GWR used (some predictor surfaces are globally fixed).
 
-
-## Multiple-year modelling
-1. Supervised linear regression model (only fixed effect) and Mixed effect model (both random and fixed effect)
-* model_structure_lmm_foreach.R
-* compare_lme_slr.R
-
-2. Random forests
-* 
